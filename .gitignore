@@ -46,3 +46,11 @@ desktop.ini
 .vscode/
 .idea/
 *.swp
+
+# ---- 桌面版构建与本地经营数据 ----
+__pycache__/
+*.pyc
+desktop_app/.build/
+desktop_app/data/
+桌面版/
+服装生意工作台-Windows.zip

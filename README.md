@@ -2,6 +2,8 @@
 
 **AI 跨境电商运营智能体工具箱** · *Turn cross-border ecommerce SOPs into reusable AI Agent workflows.*
 
+> **Windows 桌面版 1.3 已提供**：双击根目录 `启动服装生意工作台.cmd`，或打开 `桌面版/服装生意工作台-1.3.exe`。新版采用浅色侧栏、紧凑标题和统一按钮；选品清单支持搜索、进度切换和独立添加窗口。选品支持 **粘贴表格自动整理、直接读取 Excel、用款式名或链接先收集线索**，来源资料可后补。内含产品档案、利润测算、七类 AI 工作流、8 类条件筛选及业务台账。基础功能离线可用；模型接口按需配置。用法与构建见 [desktop_app/README.md](./desktop_app/README.md)，资料来源与口径见 [选品实操说明](./docs/06_Selection_Practice.md)。可执行文件为本地构建产物，不纳入 Git。
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Status: v0.3 beta](https://img.shields.io/badge/status-v0.3%20beta-orange.svg)](./CHANGELOG.md)
 [![Agents: 7/7 done](https://img.shields.io/badge/agents-7%2F7%20done-brightgreen.svg)](#-agent-全景)

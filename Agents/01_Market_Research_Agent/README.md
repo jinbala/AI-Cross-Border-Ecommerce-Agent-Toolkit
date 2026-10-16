@@ -1,5 +1,7 @@
 # 01 · Market Research Agent
 
+> 桌面版新增“选品实操”：支持手工导出 CSV 的 8 类可调整初筛、缺项检查、候选池、AI 复核与测款记录。新增任务为 `prompts/03_candidate_validation.md`，来源、适配与口径见 [选品实操说明](../../docs/06_Selection_Practice.md)。
+
 **市场分析智能体** · 输入类目数据，输出**"这个产品该不该做、该做什么价位、做什么配置"**的判断。
 
 ---

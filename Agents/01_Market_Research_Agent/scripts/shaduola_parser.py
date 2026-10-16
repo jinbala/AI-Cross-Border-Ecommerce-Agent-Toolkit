@@ -102,9 +102,12 @@ def _to_number(raw: Any) -> float | None:
         else:
             s = s.replace(",", "")
     elif "," in s:
-        # 只有逗号：1,234 视为千分位；1,5 视为小数点
+        # 只有逗号：1,234 视为千分位；1,5 / 19,90 视为小数。
         head, _, tail = s.rpartition(",")
-        s = (head.replace(",", "") + "." + tail) if len(tail) == 1 else s.replace(",", "")
+        s = (head.replace(",", "") + "." + tail) if len(tail) in (1, 2) else s.replace(",", "")
+    elif "." in s and mult == 1.0 and re.fullmatch(r"-?\d{1,3}(?:\.\d{3})+", s):
+        # 与文档约定一致：1.234 / 1.234.567 是千分位。
+        s = s.replace(".", "")
 
     try:
         return float(s) * mult
