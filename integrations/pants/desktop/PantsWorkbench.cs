@@ -9,6 +9,91 @@ using System.Windows.Forms;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
 
+// Local namespace scopes the lock to the Windows session; the SID isolates users.
+internal sealed class SingleInstance : IDisposable
+{
+    private readonly System.Threading.Mutex mutex;
+    private readonly System.Threading.EventWaitHandle activate, compass;
+    private readonly List<System.Threading.RegisteredWaitHandle> waits = new List<System.Threading.RegisteredWaitHandle>();
+    internal readonly bool IsPrimary;
+    private const string WindowTitle = "服装生意工作台 2.0 · 选品与经营";
+    [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+    private static extern IntPtr FindWindow(string className, string title);
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool AllowSetForegroundWindow(uint processId);
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool SetForegroundWindow(IntPtr window);
+
+    internal SingleInstance(string key)
+    {
+        string name = "Local\\" + key;
+        activate = new System.Threading.EventWaitHandle(false, System.Threading.EventResetMode.AutoReset, name + ".activate");
+        compass = new System.Threading.EventWaitHandle(false, System.Threading.EventResetMode.AutoReset, name + ".compass");
+        mutex = new System.Threading.Mutex(false, name + ".lock");
+        try { IsPrimary = mutex.WaitOne(0); }
+        catch (System.Threading.AbandonedMutexException) { IsPrimary = true; }
+    }
+
+    internal void Notify(bool openCompass)
+    {
+        uint pid;
+        IntPtr window = FindWindow(null, WindowTitle);
+        if (window != IntPtr.Zero) { GetWindowThreadProcessId(window, out pid); AllowSetForegroundWindow(pid); }
+        (openCompass ? compass : activate).Set();
+    }
+
+    internal void Attach(Form form, Action<bool> callback)
+    {
+        // Force handle creation before accepting notifications, including during startup.
+        IntPtr handle = form.Handle;
+        foreach (bool openCompass in new[] { false, true }) {
+            bool requestCompass = openCompass;
+            waits.Add(System.Threading.ThreadPool.RegisterWaitForSingleObject(openCompass ? compass : activate, delegate {
+                try {
+                    form.BeginInvoke(new Action(delegate {
+                        if (form.IsDisposed) return;
+                        if (!form.Visible) form.Show();
+                        if (form.WindowState == FormWindowState.Minimized) form.WindowState = FormWindowState.Normal;
+                        form.Activate(); SetForegroundWindow(form.Handle);
+                        callback(requestCompass);
+                    }));
+                } catch (InvalidOperationException) { }
+            }, null, System.Threading.Timeout.Infinite, false));
+        }
+    }
+
+    public void Dispose()
+    {
+        foreach (var wait in waits) wait.Unregister(null);
+        if (IsPrimary) mutex.ReleaseMutex();
+        mutex.Dispose(); activate.Dispose(); compass.Dispose();
+    }
+
+    internal static void RunTestHost(string folder, bool openCompass)
+    {
+        Directory.CreateDirectory(folder);
+        string key;
+        using (var hash = System.Security.Cryptography.SHA256.Create())
+            key = "GarmentWorkbench.Test." + BitConverter.ToString(hash.ComputeHash(Encoding.UTF8.GetBytes(folder))).Replace("-", "");
+        using (var instance = new SingleInstance(key)) {
+            if (!instance.IsPrimary) { instance.Notify(openCompass); return; }
+            using (var form = new Form { Text = WindowTitle, Width = 480, Height = 220 }) {
+                instance.Attach(form, delegate(bool requested) {
+                    File.AppendAllText(Path.Combine(folder, "activation.log"), (requested ? "compass" : "activate") + ":" + form.WindowState + "\n");
+                });
+                form.Shown += delegate { File.WriteAllText(Path.Combine(folder, "ready"), Process.GetCurrentProcess().Id + ":" + form.Handle.ToInt64()); };
+                DateTime deadline = DateTime.UtcNow.AddMinutes(2);
+                using (var timer = new Timer { Interval = 250 }) {
+                    timer.Tick += delegate { if (DateTime.UtcNow > deadline || File.Exists(Path.Combine(folder, "close"))) form.Close(); };
+                    timer.Start(); Application.Run(form);
+                }
+            }
+        }
+    }
+}
+
 internal static class Program
 {
     [STAThread]
@@ -22,7 +107,21 @@ internal static class Program
         bool loginSmoke = args.Length == 2 && args[0] == "--login-smoke-test";
         bool openCompass = args.Length == 1 && args[0] == "--open-compass";
         string smokeOutput = args.Length == 2 && (args[0] == "--smoke-test" || collectorSmoke || loginSmoke || unifiedSmoke) ? Path.GetFullPath(args[1]) : null;
-        Application.Run(new WorkbenchForm(smokeOutput, collectorSmoke, loginSmoke, openCompass, updateSmoke, unifiedSmoke));
+        if (args.Length >= 2 && args[0] == "--instance-test-host") {
+            SingleInstance.RunTestHost(Path.GetFullPath(args[1]), args.Length == 3 && args[2] == "--open-compass");
+            return;
+        }
+        if (smokeOutput != null) {
+            Application.Run(new WorkbenchForm(smokeOutput, collectorSmoke, loginSmoke, openCompass, updateSmoke, unifiedSmoke));
+            return;
+        }
+        string identity = System.Security.Principal.WindowsIdentity.GetCurrent().User.Value;
+        using (var instance = new SingleInstance("GarmentWorkbench.2." + identity)) {
+            if (!instance.IsPrimary) { instance.Notify(openCompass); return; }
+            var form = new WorkbenchForm(null, false, false, openCompass, false, false);
+            instance.Attach(form, form.ActivateExisting);
+            Application.Run(form);
+        }
     }
 }
 
@@ -49,6 +148,8 @@ internal sealed partial class WorkbenchForm : Form
     private bool smokeStarted;
     private DateTime sourceTime;
     private bool ready;
+    private bool timerBusy;
+    private bool watchSource;
     private CoreWebView2DownloadOperation testDownload;
 
     public WorkbenchForm(string smokeOutput, bool collectorSmoke, bool loginSmoke, bool openCompass, bool updateSmoke, bool unifiedSmoke)
@@ -73,13 +174,23 @@ internal sealed partial class WorkbenchForm : Form
         Shown += async delegate { await Initialize(); };
         updateTimer.Interval = 2500;
         updateTimer.Tick += async delegate {
-            if (ready && !updating && (compass == null || !compass.Collecting) && SyncSource()) view.Reload();
+            if (timerBusy) return;
+            timerBusy = true;
+            try {
+            if (watchSource && ready && !updating && (compass == null || !compass.Collecting) && SyncSource()) view.Reload();
             if (pendingLogin != null && !updating && compass != null && await compass.IsSignedIn()) {
                 if (pendingLogin == null || updating) return;
                 var request = pendingLogin; pendingLogin = null; await StartUpdate(request);
             }
+            } finally { timerBusy = false; }
         };
         FormClosed += delegate { StopBusinessProcesses(); updateTimer.Stop(); updateTimer.Dispose(); view.Dispose(); };
+    }
+
+    internal void ActivateExisting(bool openCompass)
+    {
+        if (!openCompass) return;
+        if (ready) OpenCompass(); else openCompassAtStart = true;
     }
 
     private static void AddButton(ToolStrip toolbar, string label, Action action)
@@ -112,7 +223,8 @@ internal sealed partial class WorkbenchForm : Form
     {
         TestTrace("initialize entered");
         try {
-            SyncSource();
+            watchSource = File.Exists(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "source-path.txt"));
+            if (watchSource) SyncSource();
             if (!File.Exists(Path.Combine(assets, "pants-tool.html"))) throw new FileNotFoundException("未找到选品页面，请重新运行桌面版安装脚本。");
             string profile = smokeOutput == null
                 ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PantsSelectionWorkbench", "UserData")

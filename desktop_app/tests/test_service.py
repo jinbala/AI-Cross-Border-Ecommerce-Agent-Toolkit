@@ -1,4 +1,7 @@
+import io
 import json
+import sqlite3
+from contextlib import closing
 from pathlib import Path
 import subprocess
 import sys
@@ -148,6 +151,78 @@ class UnifiedServiceTests(unittest.TestCase):
         data=json.loads(response.stdout)
         self.assertTrue(data['ok'],data)
         self.assertEqual(len(data['data']['ids']),1)
+
+    def test_persistent_worker_responds_before_eof_and_keeps_saved_records(self):
+        root = Path(__file__).resolve().parents[2]
+        with subprocess.Popen([sys.executable, str(root/'desktop_app/service.py'), '--serve', '--data-dir',
+                               str(Path(self.temp.name)/'worker')], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE, cwd=self.temp.name) as worker:
+            def request(value):
+                worker.stdin.write(json.dumps(value, ensure_ascii=False).encode('utf-8') + b'\n')
+                worker.stdin.flush()
+                return json.loads(worker.stdout.readline())
+            self.assertTrue(request(dict(command='intake', args=dict(text='中文\n宽松衬衫')))['ok'])
+            self.assertFalse(request(dict(command='missing'))['ok'])
+            self.assertTrue(request(dict(command='state'))['data']['candidates'])
+            self.assertIsNone(worker.poll())
+            worker.stdin.close()
+            self.assertEqual(worker.wait(timeout=10), 0)
+            self.assertEqual(worker.stderr.read(), b'')
+
+    def test_persistent_worker_recovers_from_invalid_and_oversized_frames(self):
+        stream = io.BytesIO(b'{invalid}\n' + b'x'*200 + b'\n' + b'{"command":"state"}\n')
+        result = io.BytesIO()
+        with patch.object(service, 'MAX_REQUEST', 64):
+            service.serve(Path(self.temp.name)/'worker', stream, result)
+        responses = [json.loads(line) for line in result.getvalue().splitlines()]
+        self.assertEqual([item['ok'] for item in responses], [False, False, True])
+
+    def test_compact_state_excludes_large_bodies_but_details_and_backup_stay_complete(self):
+        body = '完整报告正文\n' * 15000
+        artifact = self.store.save('artifact', dict(name='长报告', kind='分析报告', content=body))
+        source = self.call('import_compass', **self.payload())
+        item = source['candidate']
+        item['evidence'].update(is_demo=True, observations=[body])
+        candidate = self.store.save('candidate', item, source['candidate_id'])
+        compact = self.call('state', compact=True)
+        full = self.call('state')
+        self.assertLess(len(json.dumps(compact)), len(json.dumps(full)) / 10)
+        self.assertNotIn('content', compact['artifacts'][0])
+        self.assertEqual(compact['candidates'][0]['evidence'], dict(is_demo=True))
+        self.assertEqual(self.call('artifact_detail', id=artifact)['content'], body)
+        with self.assertRaises(ValueError):
+            self.call('artifact_detail', id=candidate)
+        backup = Path(self.temp.name)/'complete.json'
+        self.call('backup', path=str(backup))
+        restored = core.Store(Path(self.temp.name)/'restored')
+        try:
+            restored.restore(backup)
+            self.assertEqual(restored.get(artifact)['content'], body)
+            self.assertEqual(restored.get(candidate)['evidence']['observations'], [body])
+        finally:
+            restored.close()
+
+    def test_existing_database_gets_list_metadata_and_changes_follow_transactions(self):
+        folder = Path(self.temp.name)/'legacy'
+        folder.mkdir()
+        with closing(sqlite3.connect(folder/'workbench.db')) as legacy, legacy:
+            legacy.execute('CREATE TABLE records (id TEXT PRIMARY KEY,kind TEXT,data TEXT,created TEXT,updated TEXT)')
+            legacy.execute('INSERT INTO records VALUES (?,?,?,?,?)', ('old','artifact',json.dumps(dict(name='原报告',kind='分析',content='完整旧正文')),'2026-10-17','2026-10-17'))
+        migrated = core.Store(folder)
+        try:
+            self.assertEqual(migrated.summaries('artifact')[0]['name'], '原报告')
+            self.assertEqual(migrated.get('old')['content'], '完整旧正文')
+            migrated.connection.execute("UPDATE records SET data=json_set(data,'$.name','未提交') WHERE id='old'")
+            self.assertEqual(migrated.summaries('artifact')[0]['name'], '未提交')
+            migrated.connection.rollback()
+            self.assertEqual(migrated.summaries('artifact')[0]['name'], '原报告')
+            with closing(sqlite3.connect(folder/'workbench.db')) as external, external:
+                external.execute("UPDATE records SET data=json_set(data,'$.name','另一连接保存') WHERE id='old'")
+            self.assertEqual(migrated.summaries('artifact')[0]['name'], '另一连接保存')
+            migrated.delete('old')
+            self.assertEqual(migrated.summaries('artifact'), [])
+        finally:
+            migrated.close()
 
 
 if __name__=='__main__':unittest.main()

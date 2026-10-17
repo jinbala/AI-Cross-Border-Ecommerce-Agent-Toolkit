@@ -1,6 +1,6 @@
 """JSON-over-stdin service used by the unified WebView2 desktop host.
 
-One request per process; no listening port, shell commands or browser sessions.
+Supports one-shot and persistent requests; no listening port or browser sessions.
 """
 from __future__ import annotations
 
@@ -145,10 +145,13 @@ def public_settings(store):
 def dispatch(store, command, args):
     object_value(args)
     if command == "state":
-        return dict(version="2.0.0", products=store.list("product"), candidates=store.list("candidate"),
-                    artifacts=store.list("artifact"), experiments=store.list("experiment"), settings=public_settings(store),
+        compact = args.get("compact") is True
+        return dict(version="2.0.0", products=store.list("product"), candidates=store.summaries("candidate") if compact else store.list("candidate"),
+                    artifacts=store.summaries("artifact") if compact else store.list("artifact"), experiments=store.list("experiment"), settings=public_settings(store),
                     fields=core.PRODUCT_FIELDS + core.LONG_FIELDS, modules=[m[1] for m in core.MODULES], platforms=core.PLATFORMS,
                     strategies={key: selection.STRATEGIES[key] for key in selection.FILTER_KEYS})
+    if command == "artifact_detail":
+        return record(store, args.get("id"), "artifact")
     if command == "import_compass":
         return import_compass(store, args)
     if command == "create_product":
@@ -310,7 +313,11 @@ def dispatch(store, command, args):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--data-dir", required=True, type=Path)
+    parser.add_argument("--serve", action="store_true", help="Process newline-delimited requests until stdin closes")
     args = parser.parse_args()
+    if args.serve:
+        serve(args.data_dir, sys.stdin.buffer, sys.stdout.buffer)
+        return
     store = None
     try:
         raw = sys.stdin.buffer.read(MAX_REQUEST + 1)
@@ -329,6 +336,43 @@ def main():
         if store is not None:
             store.close()
     sys.stdout.buffer.write(json.dumps(response, ensure_ascii=False, allow_nan=False).encode("utf-8"))
+
+
+def serve(folder, source, target):
+    """Keep one database connection; every request still has its own response/error."""
+    store = None
+    try:
+        while True:
+            raw = source.readline(MAX_REQUEST + 2)
+            if not raw:
+                break
+            oversized = len(raw.rstrip(b"\r\n")) > MAX_REQUEST
+            if oversized:
+                # Drain only this frame so the next request remains usable.
+                while not raw.endswith(b"\n"):
+                    raw = source.readline(MAX_REQUEST + 2)
+                    if not raw:
+                        break
+            try:
+                if oversized:
+                    raise ValueError("本次资料过大，请分批处理。")
+                payload = object_value(json.loads(raw.decode("utf-8-sig"), parse_constant=lambda value: (_ for _ in ()).throw(ValueError("JSON 不能包含非有限数。"))))
+                if store is None:
+                    store = core.Store(folder)
+                response = dict(ok=True, data=dispatch(store, text(payload.get("command"), 100), payload.get("args", {})))
+            except (ValueError, OSError, KeyError, TypeError, sqlite3.Error) as error:
+                if store is not None:
+                    store.connection.rollback()
+                response = dict(ok=False, error=str(error) if isinstance(error, ValueError) else "资料无法处理，请检查文件格式、数据目录与输入字段。")
+            except Exception:
+                if store is not None:
+                    store.connection.rollback()
+                response = dict(ok=False, error="本次操作未完成，请缩小资料后重试。")
+            target.write(json.dumps(response, ensure_ascii=False, allow_nan=False).encode("utf-8") + b"\n")
+            target.flush()
+    finally:
+        if store is not None:
+            store.close()
 
 
 if __name__ == "__main__":

@@ -5,6 +5,9 @@ const desktopBridge = globalThis.PANTS_DESKTOP && globalThis.chrome?.webview;
 let chosenPriceBands = new Set(), priceUnlimited = Boolean(desktopBridge);
 let activeSection = 'workbench', pricePresets = [];
 let favorites = new Set(), favoriteKey = '';
+const searchIndex = new WeakMap();
+let cardPage = 0, factoryResults = new WeakMap();
+const cardsPerPage = 80;
 let categoryPaths = Object.entries(PANTS).flatMap(([gender, names]) => names.map(name => ['服饰内衣', '服装', gender, name]));
 let selectedCategories = new Set(categoryPaths.filter(path => (path[2] === '女装' && path[3] === '牛仔裤') || (path[2] === '男装' && path[3] === '休闲裤')).map(path => JSON.stringify(path)));
 const el = id => document.getElementById(id);
@@ -90,6 +93,7 @@ function renderSection() {
 }
 function clearResult() {
   outputHtml = ''; currentReport = null; currentView = null;
+  cardPage = 0; el('card-pages').hidden = true;
   el('preview').removeAttribute('srcdoc'); el('cards').innerHTML = '';
   for (const id of ['download', 'json-download', 'csv-download']) el(id).disabled = true;
   el('view-count').textContent = '暂无结果';
@@ -117,7 +121,7 @@ function renderCard(group) {
   const favorite = favorites.has(product.id);
   const link = safeHttpUrl(product.link);
   const price = productPricePresentation(product);
-  const assessment = factoryScreen(group, factoryPreferences());
+  const assessment = factoryResults.get(group) || factoryScreen(group, factoryPreferences());
   return '<article class="product-card"><div class="card-top"><span class="rank">' + escapeHtml(observation?.source_filters?.price_band_label || '') + ' 榜内第 ' + escapeHtml(observation?.rank ?? '—') + ' 名</span><span class="tag">' + escapeHtml(product.apparel?.gender || '款别待核') + ' · ' + escapeHtml(product.apparel?.type || '品类待核') + '</span><button type="button" class="favorite ' + (favorite ? 'selected' : '') + '" data-favorite="' + escapeHtml(product.id) + '" aria-pressed="' + favorite + '" aria-label="' + (favorite ? '取消收藏：' : '收藏：') + escapeHtml(product.name) + '">' + (favorite ? '★ 已收藏' : '☆ 收藏') + '</button></div>'
     + '<h2>' + (link ? '<a class="product-title" href="' + escapeHtml(link) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(product.name) + '</a>' : escapeHtml(product.name)) + '</h2><p class="shop">' + escapeHtml(product.shop || '店铺待核') + '</p>'
     + '<div class="price"><span class="price-label">' + escapeHtml(price.label) + '</span>' + escapeHtml(price.value) + '<small>' + (price.isBand ? '页面展示值 · SKU 最低价待核实' : group.price_status === '待验证' ? 'SKU 最低价待核实' : '已读取的价格') + '</small></div>'
@@ -128,26 +132,39 @@ function renderCard(group) {
     + (link ? '' : '<p class="hint">可复制商品名到罗盘查找；如需批量补链接，关闭“快速读榜”后重新更新。</p>')
     + '<details><summary>类目与商品信息</summary><p>' + escapeHtml(group.category_path.join(' / ')) + '</p><p>查询价位：' + escapeHtml(observation?.source_filters?.price_band_label || '不限价格') + ' · 排名为该查询条件下的榜内名次</p><p>商品 ID：' + escapeHtml(product.id) + '</p></details></article>';
 }
-function applyView() {
+function applyView(resetPage = true) {
   if (!currentReport) return;
   const query = el('query').value.trim().toLowerCase(), type = el('type').value;
   const onlyFavorites = el('only-favorites').checked;
   const preferences = factoryPreferences();
+  factoryResults = new WeakMap();
   try { factoryScreen({product:{}}, preferences); } catch (error) { notice(error.message,true); return; }
   let groups = currentReport.groups.filter(group => {
-    const haystack = [group.product.name, group.product.shop, group.product.id, ...Object.values(group.product.apparel || {}), ...group.works.map(work => [work.work?.title, work.work?.author, work.work?.account].join(' '))].join(' ').toLowerCase();
-    return (!query || haystack.includes(query)) && (!type || group.product.apparel?.type === type) && (!onlyFavorites || favorites.has(group.product.id)) && (!preferences.only || factoryScreen(group,preferences).qualifies);
+    if (!searchIndex.has(group)) searchIndex.set(group,[group.product.name, group.product.shop, group.product.id, ...Object.values(group.product.apparel || {}), ...group.works.map(work => [work.work?.title, work.work?.author, work.work?.account].join(' '))].join(' ').toLowerCase());
+    const matches=(!query || searchIndex.get(group).includes(query)) && (!type || group.product.apparel?.type === type) && (!onlyFavorites || favorites.has(group.product.id));
+    if(!matches || !preferences.only)return matches;
+    const assessment=factoryScreen(group,preferences);factoryResults.set(group,assessment);return assessment.qualifies;
   });
   if (el('sort').value === 'favorite') groups = groups.slice().sort((a, b) => Number(favorites.has(b.product.id)) - Number(favorites.has(a.product.id)));
   const labels = [el('gender').value, type, query && '搜索“' + el('query').value.trim() + '”', onlyFavorites && '只看收藏'].filter(Boolean);
   if (preferences.only) labels.push(`工厂初筛：成交下限≥${preferences.minSales}，转化下限≥${preferences.minConversion}%，关键词：${preferences.keywords || '不限'}`);
   currentView = { ...currentReport, groups, summary: { ...currentReport.summary, unique_products: groups.length, qualified_relations: groups.reduce((count, group) => count + (group.is_product_ranking ? group.observations.length : group.works.length), 0) }, meta: { ...currentReport.meta, view_filters: labels, collection_scope: [currentReport.meta.collection_scope, '导出视图：' + labels.join(' / ')].filter(Boolean).join('；') } };
-  outputHtml = renderSelectionHtml(currentView); el('preview').srcdoc = outputHtml;
   const productMode = currentReport.meta.source_type === 'product_ranking';
+  // Desktop product cards already present the report. Build its export only on demand.
+  const lazyExport = desktopBridge && productMode;
+  outputHtml = lazyExport ? '' : renderSelectionHtml(currentView);
+  if(lazyExport)el('preview').removeAttribute('srcdoc');else el('preview').srcdoc = outputHtml;
   el('preview').hidden = productMode; el('product-board').hidden = !productMode;
-  el('cards').innerHTML = productMode ? groups.map(renderCard).join('') : '';
+  const paged = Boolean(desktopBridge && productMode);
+  if(resetPage)cardPage=0;
+  cardPage=Math.min(cardPage,Math.max(0,Math.ceil(groups.length/cardsPerPage)-1));
+  const visible=paged?groups.slice(cardPage*cardsPerPage,(cardPage+1)*cardsPerPage):groups;
+  el('cards').innerHTML = productMode ? visible.map(renderCard).join('') : '';
+  el('card-pages').hidden = !paged || groups.length <= cardsPerPage;
+  el('card-page-label').textContent='第 '+(cardPage+1)+' / '+Math.max(1,Math.ceil(groups.length/cardsPerPage))+' 页 · 每页 '+cardsPerPage+' 款';
+  el('card-prev').disabled=cardPage===0;el('card-next').disabled=(cardPage+1)*cardsPerPage>=groups.length;
   el('empty').hidden = groups.length !== 0;
-  el('view-count').textContent = '当前显示 ' + groups.length + ' 件 / 筛选前 ' + currentReport.groups.length + ' 件';
+  el('view-count').textContent = '筛选结果 ' + groups.length + ' 件 / 筛选前 ' + currentReport.groups.length + ' 件' + (paged && groups.length ? ' · 本页第 '+(cardPage*cardsPerPage+1)+'–'+Math.min((cardPage+1)*cardsPerPage,groups.length)+' 件' : '');
   el('favorite-count').textContent = '当前范围已收藏 ' + currentReport.groups.filter(group => favorites.has(group.product.id)).length + ' 件';
   const unknownPrices = groups.filter(group => group.price_filter_basis === 'unknown').length;
   el('price-feedback').className = 'hint';
@@ -264,7 +281,7 @@ el('cards').addEventListener('click', async event => {
     if (favorites.has(id)) favorites.delete(id); else favorites.add(id);
     try { localStorage.setItem(favoriteKey, JSON.stringify([...favorites])); el('favorite-note').textContent = '收藏已保存到' + storagePlace + '。'; }
     catch { el('favorite-note').textContent = '收藏仅在本次页面有效；浏览器未允许保存，关闭前可下载清单。'; }
-    applyView(); return;
+    applyView(false); return;
   }
   const copy = event.target.closest('[data-copy-product]'); if (!copy) return;
   const group = currentReport.groups.find(item => item.product.id === copy.dataset.copyProduct);
@@ -299,7 +316,9 @@ el('demo').addEventListener('click', () => {
   loaded = { kind: 'json', input: structuredClone(selected) }; el('date').value = selected.meta.ranking_date; el('file').value = '';
   el('source').textContent = '演示数据（虚构，不是实时榜单）'; el('saved-scope').textContent = ''; resetFilters();
 });
-el('download').addEventListener('click', () => { if (currentView?.groups.length) download(outputHtml, (currentView.meta.is_demo ? '演示-' : '') + '裤装清单-' + currentView.meta.ranking_date + '.html', 'text/html;charset=utf-8'); });
+el('card-prev').addEventListener('click',()=>{if(cardPage>0){cardPage--;applyView(false);}});
+el('card-next').addEventListener('click',()=>{if(currentView&&(cardPage+1)*cardsPerPage<currentView.groups.length){cardPage++;applyView(false);}});
+el('download').addEventListener('click', () => { if (currentView?.groups.length) {if(!outputHtml)outputHtml=renderSelectionHtml(currentView);download(outputHtml, (currentView.meta.is_demo ? '演示-' : '') + '裤装清单-' + currentView.meta.ranking_date + '.html', 'text/html;charset=utf-8');} });
 el('json-download').addEventListener('click', () => { if (currentView?.groups.length) download(JSON.stringify(currentView, null, 2), '裤装报告-' + currentView.meta.ranking_date + '.json', 'application/json;charset=utf-8'); });
 el('csv-download').addEventListener('click', () => {
   if (!currentView?.groups.length) return;

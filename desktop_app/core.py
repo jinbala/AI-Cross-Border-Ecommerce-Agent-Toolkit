@@ -259,6 +259,37 @@ class Store:
             created TEXT NOT NULL, updated TEXT NOT NULL);
         CREATE INDEX IF NOT EXISTS records_kind ON records(kind, updated);
         """)
+        # Keep list metadata beside the full records so navigation never scans long
+        # reports or observation histories. Triggers keep all writers consistent.
+        self.connection.executescript("""
+        CREATE TABLE IF NOT EXISTS record_list_cache_v1 (
+            id TEXT PRIMARY KEY, kind TEXT NOT NULL, summary TEXT NOT NULL,
+            created TEXT NOT NULL, updated TEXT NOT NULL);
+        CREATE INDEX IF NOT EXISTS record_list_cache_kind ON record_list_cache_v1(kind, updated);
+        """)
+        projection = """CASE WHEN {alias}.kind='artifact'
+            THEN json_extract({alias}.data,'$.name','$.kind','$.product_id','$.is_demo')
+            ELSE json_extract({alias}.data,'$.name','$.source_id','$.platform','$.as_of','$.status','$.review_status','$.evidence.is_demo') END"""
+        for operation in ("INSERT", "UPDATE"):
+            self.connection.executescript("""
+            CREATE TRIGGER IF NOT EXISTS record_list_cache_%s AFTER %s ON records BEGIN
+                DELETE FROM record_list_cache_v1 WHERE id=NEW.id;
+                INSERT INTO record_list_cache_v1
+                SELECT NEW.id,NEW.kind,%s,NEW.created,NEW.updated
+                WHERE NEW.kind IN ('candidate','artifact');
+            END;
+            """ % (operation.lower(), operation, projection.format(alias="NEW")))
+        self.connection.executescript("""
+        CREATE TRIGGER IF NOT EXISTS record_list_cache_delete AFTER DELETE ON records BEGIN
+            DELETE FROM record_list_cache_v1 WHERE id=OLD.id;
+        END;
+        """)
+        self.connection.execute("""
+            INSERT INTO record_list_cache_v1
+            SELECT r.id,r.kind,%s,r.created,r.updated FROM records r
+            WHERE r.kind IN ('candidate','artifact')
+            AND NOT EXISTS (SELECT 1 FROM record_list_cache_v1 c WHERE c.id=r.id)
+        """ % projection.format(alias="r"))
         self.connection.commit()
 
     def setting(self, key, default=None):
@@ -284,6 +315,22 @@ class Store:
     def list(self, kind):
         rows = self.connection.execute("SELECT id,data,created,updated FROM records WHERE kind=? ORDER BY updated DESC", (kind,))
         return [dict(json.loads(r[1]), id=r[0], created=r[2], updated=r[3]) for r in rows]
+
+    def summaries(self, kind):
+        """Read small, transactionally maintained metadata without scanning bodies."""
+        fields = {
+            "artifact": ("name", "kind", "product_id", "is_demo"),
+            "candidate": ("name", "source_id", "platform", "as_of", "status", "review_status"),
+        }[kind]
+        rows = self.connection.execute("SELECT id,created,updated,summary FROM record_list_cache_v1 WHERE kind=? ORDER BY updated DESC", (kind,))
+        result = []
+        for row in rows:
+            values = json.loads(row[3])
+            item = dict(zip(fields, values), id=row[0], created=row[1], updated=row[2])
+            if kind == "candidate":
+                item["evidence"] = dict(is_demo=bool(values[-1]))
+            result.append(item)
+        return result
 
     def save_batch(self, kind, records):
         if kind not in ("product", "artifact", "experiment", "candidate"):

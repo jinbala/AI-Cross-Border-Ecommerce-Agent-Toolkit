@@ -7,6 +7,12 @@
   document.getElementById('source').closest('section').classList.add('data-summary');
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const requests = new Map();
+  const stateCache = new WorkbenchStateCache(() => call('state', {compact:true}));
+  const writes = new Set(['import_compass','create_product','save_product','intake','import_file','review_candidate','generate_ai','save_artifact','save_experiment','save_settings','restore']);
+  let artifactDetail = null, candidateQuery = '', candidatePage = 0, artifactPage = 0;
+  const pageSize = 50;
+  let candidateSearchTimer;
+  let stateRequestCount = 0;
   let state, page = '', productId = '', experimentId = '', artifactId = '', report = '', workflowPrompt = '', workflowResult = '';
   let pricingResult = null, candidateBrief = '', selectedCandidate = '', renderId = 0;
   let checkTab = 'video';
@@ -32,14 +38,18 @@
   function call(command,args={}) {
     if (!host) return Promise.reject(new Error('请在整合桌面版中使用经营功能。'));
     const id = crypto.randomUUID();
+    if(command==='state')stateRequestCount++;
+    const changesState = writes.has(command) || (command==='pricing' && args.save);
+    if(changesState) {stateCache.invalidate();artifactDetail=null;}
     return new Promise((resolve,reject) => {
       const timer = setTimeout(()=>{requests.delete(id);reject(new Error('本次处理超时，请稍后重试。'));},190000);
-      requests.set(id,{resolve,reject,timer}); host.postMessage({action:'business',id,command,args});
+      requests.set(id,{resolve,reject,timer,changesState}); host.postMessage({action:'business',id,command,args});
     });
   }
   function receive(response) {
     const request = requests.get(response.id); if(!request) return;
     clearTimeout(request.timer); requests.delete(response.id);
+    if(request.changesState) {stateCache.invalidate();artifactDetail=null;}
     if(response.ok) request.resolve(response.data); else request.reject(new Error(response.error || '本次操作未完成。'));
   }
   function captureDraft() {
@@ -47,24 +57,31 @@
     const value = form(); delete value.api_key;
     drafts[page+':'+(page==='products'?productId:page==='experiments'?experimentId:page==='checks'?checkTab:'')] = value;
   }
-  async function refresh() { state = await call('state'); return state; }
+  async function refresh(force=true) { state = await stateCache.get(force); return state; }
   async function navigate(next, selected='') {
     captureDraft(); page = next; if(selected && next==='products') productId=selected;
     host?.postMessage({action:'business-navigation',section:next==='intake'?'candidates':next});
     document.body.dataset.business='true'; root.hidden=false; message('');
     const request = ++renderId; view().innerHTML='<div class="biz-loading">正在读取本机资料…</div>';
-    try { await refresh(); if(request===renderId){render();window.scrollTo(0,0);} } catch(error) {message(error.message,true);}
+    try { await refresh(false); if(request===renderId){render();window.scrollTo(0,0);} } catch(error) {if(request===renderId)message(error.message,true);}
   }
   function showPants() {captureDraft();page='';renderId++;root.hidden=true;delete document.body.dataset.business;}
   function render() {
     const routes={candidates:renderCandidates,products:renderProducts,pricing:renderPricing,workflows:renderWorkflows,experiments:renderExperiments,artifacts:renderArtifacts,settings:renderSettings,analytics:renderAnalytics,checks:renderChecks};
     (routes[page]||renderCandidates)();
   }
+  function pagination(total, index, prefix) {
+    const pages=Math.max(1,Math.ceil(total/pageSize));
+    return `<div class="biz-tools" aria-label="列表分页"><span class="hint">共 ${total} 条 · 第 ${index+1} / ${pages} 页</span>${btn(prefix+'-prev','上一页',false,index===0?'disabled':'')}${btn(prefix+'-next','下一页',false,index+1>=pages?'disabled':'')}</div>`;
+  }
   function renderCandidates() {
-    const rows=state.candidates;
+    const matches=state.candidates.filter(c=>((c.name||'')+' '+(c.source_id||'')).toLowerCase().includes(candidateQuery.toLowerCase()));
+    candidatePage=Math.min(candidatePage,Math.max(0,Math.ceil(matches.length/pageSize)-1));
+    const rows=matches.slice(candidatePage*pageSize,(candidatePage+1)*pageSize);
     view().innerHTML=head('我的候选','罗盘收藏与手工线索汇总在这里，选中后可以直接建档算利润。',btn('intake','添加线索',true))
-      +'<div class="biz-tools"><input id="biz-search" type="search" placeholder="搜索款式 / 商品 ID" style="max-width:330px">'+btn('sync-favorites','同步当前榜单收藏')+btn('open-screen','表格与条件初筛')+'</div>'
-      +`<div class="biz-table-wrap"><table class="biz-table"><thead><tr><th>款式 / 商品</th><th>来源</th><th>状态</th><th>操作</th></tr></thead><tbody>${rows.map(c=>`<tr data-search="${esc((c.name+' '+c.source_id).toLowerCase())}"><td>${esc(c.name)} ${c.evidence?.is_demo?'<span class="biz-tag demo">演示</span>':''}<div class="hint">${esc(c.source_id)}</div></td><td>${esc(c.platform)}<div class="hint">${esc(c.as_of||'日期待补')}</div></td><td><span class="biz-tag">${esc(c.review_status)}</span><div class="hint">${esc(c.status)}</div></td><td>${btn('candidate-cost','建档算利润',true,`data-id="${esc(c.id)}"`)} ${btn('candidate-ai','调研',false,`data-id="${esc(c.id)}"`)} ${btn('candidate-detail','资料',false,`data-id="${esc(c.id)}"`)}</td></tr>`).join('')}</tbody></table>${rows.length?'':empty('还没有候选。在“选品找款”收藏一款，或点击“添加线索”。')}</div><div id="biz-detail"></div>`;
+      +'<div class="biz-tools"><input id="biz-search" type="search" value="'+esc(candidateQuery)+'" placeholder="搜索全部候选 / 商品 ID" style="max-width:330px">'+btn('sync-favorites','同步当前榜单收藏')+btn('open-screen','表格与条件初筛')+'</div>'
+      +`<div class="biz-table-wrap"><table class="biz-table"><thead><tr><th>款式 / 商品</th><th>来源</th><th>状态</th><th>操作</th></tr></thead><tbody>${rows.map(c=>`<tr data-search="${esc((c.name+' '+c.source_id).toLowerCase())}"><td>${esc(c.name)} ${c.evidence?.is_demo?'<span class="biz-tag demo">演示</span>':''}<div class="hint">${esc(c.source_id)}</div></td><td>${esc(c.platform)}<div class="hint">${esc(c.as_of||'日期待补')}</div></td><td><span class="biz-tag">${esc(c.review_status)}</span><div class="hint">${esc(c.status)}</div></td><td>${btn('candidate-cost','建档算利润',true,`data-id="${esc(c.id)}"`)} ${btn('candidate-ai','调研',false,`data-id="${esc(c.id)}"`)} ${btn('candidate-detail','资料',false,`data-id="${esc(c.id)}"`)}</td></tr>`).join('')}</tbody></table>${rows.length?'':empty(candidateQuery?'没有符合搜索条件的候选。':'还没有候选。在“选品找款”收藏一款，或点击“添加线索”。')}</div><div id="biz-detail"></div>`;
+    view().insertAdjacentHTML('beforeend',pagination(matches.length,candidatePage,'candidates'));
   }
   function renderProducts() {
     const p=drafts['products:'+productId] || activeProduct() || {};
@@ -119,10 +136,13 @@
       +`<div class="biz-table-wrap"><table class="biz-table"><tr><th>试验 / 渠道</th><th>日期</th><th>实际支出 / 收入</th><th>操作</th></tr>${state.experiments.map(x=>`<tr><td>${esc(x.name)} ${x.is_demo?'<span class="biz-tag demo">演示，不计汇总</span>':''}<div class="hint">${esc(x.channel)} · ${esc(x.status)}</div></td><td>${esc(x.date)}</td><td>¥ ${money(x.spent)} / ¥ ${money(x.revenue)}</td><td>${btn('edit-experiment','编辑',false,`data-id="${esc(x.id)}"`)}</td></tr>`).join('')}</table></div>`;
   }
   function renderArtifacts() {
-    const selected=state.artifacts.find(x=>x.id===artifactId);
+    const selected=artifactDetail?.id===artifactId?artifactDetail:null;
+    artifactPage=Math.min(artifactPage,Math.max(0,Math.ceil(state.artifacts.length/pageSize)-1));
+    const rows=state.artifacts.slice(artifactPage*pageSize,(artifactPage+1)*pageSize);
     view().innerHTML=head('成果资料','已保存的任务包、模型文字和计算报告。')
-      +`<div class="biz-table-wrap"><table class="biz-table"><tr><th>名称</th><th>类型</th><th>操作</th></tr>${state.artifacts.map(x=>`<tr><td>${esc(x.name)}</td><td>${esc(x.kind)}</td><td>${btn('view-artifact','查看',false,`data-id="${esc(x.id)}"`)}</td></tr>`).join('')}</table>${state.artifacts.length?'':empty('还没有保存的成果。')}</div>`
+      +`<div class="biz-table-wrap"><table class="biz-table"><tr><th>名称</th><th>类型</th><th>操作</th></tr>${rows.map(x=>`<tr><td>${esc(x.name)}</td><td>${esc(x.kind)}</td><td>${btn('view-artifact','查看',false,`data-id="${esc(x.id)}"`)}</td></tr>`).join('')}</table>${state.artifacts.length?'':empty('还没有保存的成果。')}</div>`
       +(selected?'<div class="biz-panel"><h2>'+esc(selected.name)+'</h2>'+btn('copy-artifact','复制正文')+' '+btn('export-artifact','导出文档')+output(selected.content)+'</div>':'');
+    view().insertAdjacentHTML('beforeend',pagination(state.artifacts.length,artifactPage,'artifacts'));
   }
   function renderSettings() {
     const s=state.settings;
@@ -255,7 +275,14 @@
     }catch(error){message(error.message,true);}
   });
   view().addEventListener('input',event=>{
-    if(event.target.id==='biz-search')for(const row of view().querySelectorAll('tr[data-search]'))row.hidden=!row.dataset.search.includes(event.target.value.toLowerCase());
+    if(event.target.id==='biz-search'){
+      candidateQuery=event.target.value;candidatePage=0;clearTimeout(candidateSearchTimer);
+      candidateSearchTimer=setTimeout(()=>{
+        if(page!=='candidates')return;
+        const focused=document.activeElement?.id==='biz-search', caret=event.target.selectionStart;
+        renderCandidates();if(focused){const search=document.getElementById('biz-search');search.focus();search.setSelectionRange(caret,caret);}
+      },120);
+    }
     if(page==='pricing'&&event.target.name){pricingResult=null;document.getElementById('biz-pricing-result').innerHTML='';}
     if(page==='checks'&&event.target.name){toolResults[checkTab]=null;document.getElementById('biz-tool-result').innerHTML='';}
   });
@@ -264,7 +291,9 @@
     const action=target.dataset.action;target.disabled=true;
     try {
       message('');
-      if(action==='new-product'){captureDraft();productId='';delete drafts['products:'];renderProducts();}
+      if(action==='candidates-prev'||action==='candidates-next'){candidatePage+=action.endsWith('next')?1:-1;renderCandidates();}
+      else if(action==='artifacts-prev'||action==='artifacts-next'){artifactPage+=action.endsWith('next')?1:-1;renderArtifacts();}
+      else if(action==='new-product'){captureDraft();productId='';delete drafts['products:'];renderProducts();}
       else if(action==='save-product'){await saveProduct();renderProducts();message('档案已保存。');}
       else if(action==='product-cost'||action==='product-ai'){await saveProduct();resetPriceForProduct();await navigate(action==='product-cost'?'pricing':'workflows');}
       else if(action==='candidate-cost'){const p=await call('create_product',{candidate_id:target.dataset.id});productId=p.id;await refresh();resetPriceForProduct();await navigate('pricing');}
@@ -298,9 +327,13 @@
       else if(action==='new-experiment'){captureDraft();experimentId='';delete drafts['experiments:'];renderExperiments();}
       else if(action==='edit-experiment'){captureDraft();experimentId=target.dataset.id;renderExperiments();}
       else if(action==='save-experiment'){const r=await call('save_experiment',{experiment:{...form(),...(experimentId?{id:experimentId}:{})}});delete drafts['experiments:'+experimentId];experimentId=r.id;await refresh();renderExperiments();message('测款记录已保存。');}
-      else if(action==='view-artifact'){artifactId=target.dataset.id;renderArtifacts();}
-      else if(action==='copy-artifact')await copy(state.artifacts.find(x=>x.id===artifactId)?.content);
-      else if(action==='export-artifact')await call('export_report',{content:state.artifacts.find(x=>x.id===artifactId)?.content||''});
+      else if(action==='view-artifact'){
+        const id=artifactId=target.dataset.id;message('正在读取正文…');
+        const detail=await call('artifact_detail',{id});
+        if(page==='artifacts'&&artifactId===id){artifactDetail=detail;renderArtifacts();message('');}
+      }
+      else if(action==='copy-artifact')await copy(artifactDetail?.content);
+      else if(action==='export-artifact')await call('export_report',{content:artifactDetail?.content||''});
       else if(action==='save-settings'){const r=await call('save_settings',form());state.settings=r;renderSettings();message('设置已保存。');}
       else if(action==='open-compass')host.postMessage({action:'open-compass'});
       else if(action==='collection-settings')host.postMessage({action:'collection-settings'});
@@ -375,15 +408,35 @@
       const reviewSave=view().querySelector('[data-action=save-tool]');reviewSave.click();await waitFor(()=>!reviewSave.disabled);
       await refresh();
       if(state.artifacts.filter(x=>x.name.includes('【演示】')&&x.kind==='分析报告').length!==2)throw new Error('演示工具报告保存失败');
+      if(state.artifacts.some(x=>'content' in x))throw new Error('列表仍加载全部报告正文');
+      await navigate('artifacts');view().querySelector('[data-action=view-artifact]').click();
+      await waitFor(()=>artifactDetail?.content);
+      if(!view().querySelector('.biz-output')?.textContent)throw new Error('报告正文按需读取失败');
+      await navigate('checks');checkTab='reviews';renderChecks();
       view().querySelector('[data-action=tool-video]').click();
       const script=view().querySelector('[name=script]');script.value+='\n测试修改';script.dispatchEvent(new Event('input',{bubbles:true}));
       if(toolResults.video!==null||view().querySelector('[data-action=save-tool]'))throw new Error('修改配音稿未清除过期结果');
       view().querySelector('[data-action=example-tool]').click();await waitFor(()=>toolResults.video!==null&&!toolRunning.video);
       const marketTask=await call('compose',{module:0,platform:'供货',market:'中国',brief:'测试'});
       if(!marketTask.prompt.includes('Skill 入口'))throw new Error('同步的市场分析规则未进入任务包');
+      const readsBeforeNavigation=stateRequestCount;
       for(const route of ['candidates','products','pricing','workflows','experiments','artifacts','settings','analytics','checks'])await navigate(route);
+      if(stateRequestCount!==readsBeforeNavigation)throw new Error('切页仍重复读取完整资料');
+      const realState=state;
+      try {
+        state={...state,candidates:Array.from({length:135},(_,i)=>({...realState.candidates[0],id:'test-'+i,name:'分页测试款-'+i,source_id:'sample-'+i})),artifacts:Array.from({length:135},(_,i)=>({...realState.artifacts[0],id:'report-'+i}))};
+        page='candidates';candidateQuery='';candidatePage=0;renderCandidates();
+        if(view().querySelectorAll('tr[data-search]').length!==50)throw new Error('候选未限制每页数量');
+        view().querySelector('[data-action=candidates-next]').click();
+        if(!view().textContent.includes('sample-50'))throw new Error('候选翻页失败');
+        const search=document.getElementById('biz-search');search.value='sample-134';search.dispatchEvent(new Event('input',{bubbles:true}));
+        await waitFor(()=>view().querySelectorAll('tr[data-search]').length===1);
+        if(!view().textContent.includes('sample-134'))throw new Error('搜索没有覆盖其他页');
+        page='artifacts';artifactPage=0;renderArtifacts();
+        if(view().querySelectorAll('[data-action=view-artifact]').length!==50)throw new Error('成果未分页');
+      } finally {state=realState;candidateQuery='';candidatePage=0;artifactPage=0;artifactDetail=null;}
       await navigate('candidates');
-      window.unifiedSmokeResult={passed:true,candidates:state.candidates.length,products:state.products.length,experiments:state.experiments.length,unit_profit:r.result.unit_profit,rangeNotUsedAsPrice:true,workflowHasSource:task.prompt.includes('来源平台'),actualCardAndPricingButtons:true,upstreamTools:{video:true,reviews:true,demoReports:2,staleResultCleared:true,marketSkill:true},bodyText:document.body.innerText.slice(-2500)};
+      window.unifiedSmokeResult={passed:true,candidates:state.candidates.length,products:state.products.length,experiments:state.experiments.length,unit_profit:r.result.unit_profit,rangeNotUsedAsPrice:true,workflowHasSource:task.prompt.includes('来源平台'),actualCardAndPricingButtons:true,uiPerformance:{navigationReadsAvoided:9,artifactLoadedOnDemand:true,candidatePageSize:50,artifactPageSize:50,crossPageSearch:true,hiddenProductPreviewRemoved:!document.getElementById('preview').getAttribute('srcdoc')},upstreamTools:{video:true,reviews:true,demoReports:2,staleResultCleared:true,marketSkill:true},bodyText:document.body.innerText.slice(-2500)};
     }catch(error){window.unifiedSmokeResult={passed:false,error:error.message};}
   }
   async function previewTool(tab) {await navigate('checks');captureDraft();checkTab=tab;renderChecks();}

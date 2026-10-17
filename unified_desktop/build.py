@@ -65,7 +65,8 @@ def main():
     business_markup = (ROOT / "unified_desktop/business.html").read_text(encoding="utf-8")
     interface_css = (ROOT / "unified_desktop/interface.css").read_text(encoding="utf-8")
     html = html.replace("</main><script>", business_markup + "<style>" + interface_css + "</style></main><script>")
-    addon = (ROOT / "unified_desktop/business.js").read_text(encoding="utf-8").replace("</script", "<\\/script")
+    cache_code = (ROOT / "unified_desktop/state_cache.mjs").read_text(encoding="utf-8").replace("export class", "class")
+    addon = (cache_code + "\n" + (ROOT / "unified_desktop/business.js").read_text(encoding="utf-8")).replace("</script", "<\\/script")
     html = html.replace("</script></body>", "\n" + addon + "\n</script></body>")
     assets = OUTPUT / "assets"
     assets.mkdir(exist_ok=True)

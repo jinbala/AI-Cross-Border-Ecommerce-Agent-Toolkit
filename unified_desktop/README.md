@@ -6,6 +6,10 @@
 
 双击根目录 `启动服装生意工作台.cmd`，或 `桌面版/服装生意工作台-2.0/服装生意工作台.exe`。分发包为根目录的 `服装生意工作台-整合版-2.0.zip`，解压整个目录即可使用。需要 Windows 10/11 x64、.NET Framework 4.8 和 Microsoft Edge WebView2 Runtime，不需要用户安装 Python 或 Node.js。
 
+同一 Windows 用户、同一登录会话只运行一个主窗口。重复双击会唤起现有窗口，最小化时自动恢复；不同解压目录的新版程序也共用该限制。再次使用 `--open-compass` 启动会切换现有窗口到罗盘。经营后台首次使用时启动，之后持续待命，随主窗口退出；耗时的模型请求单独处理。实现和测量口径见 [性能与单实例开发备注](../docs/13_Desktop_Performance_Single_Instance.md)。
+
+商品榜每页显示 80 款，候选与成果每页显示 50 条；候选搜索覆盖全部记录，商品导出包含全部符合当前筛选条件的结果。切换经营页面会短期复用已读资料，保存后自动更新；成果正文点击“查看”时读取。完整资料仍在数据库和备份中，详见 [列表性能备注](../docs/14_Desktop_List_Performance.md)。
+
 1. 首次到“罗盘账号”自行扫码登录，在“选品找款”更新并筛选商品。
    选品页可直接展开采集设置，查看范围与最多读取条数；勾选“快速读榜”跳过逐件补链接。切换价位只筛选本地数据，点击“立即更新”再取新榜单，避免反复重启采集。
    更新范围选择“自选类目”，可以勾选需要的类目；点击“从已登录罗盘读取更多服装类目”读取账号菜单实际可见的男装 / 女装子类目，不预先宣称所有账号都具备这些权限。原来的 14 个裤装类目仍可直接使用。
@@ -26,7 +30,7 @@
 
 ## 旧资料
 
-罗盘的登录、收藏和采集缓存沿用当前 Windows 用户的 `PantsSelectionWorkbench/UserData`、`Data`；程序包不包含这些目录。请避免同时用两个客户端操作同一账号的榜单。
+罗盘的登录、收藏和采集缓存沿用当前 Windows 用户的 `PantsSelectionWorkbench/UserData`、`Data`；程序包不包含这些目录。新版整合程序通过单实例限制避免重复打开。
 
 经营数据库位于整合版程序目录的 `data/workbench.db`，可用 `GARMENT_WORKBENCH_DATA` 指定其他目录。旧 1.3 的资料先导出 JSON 备份，再在整合版“账号与设置”合并恢复。恢复前自动备份当前资料；经营备份不包含模型密钥或浏览器登录信息。
 
@@ -34,9 +38,9 @@
 
 - `integrations/pants/`：引入的裤装源码与规则，出处、上游提交和许可见该目录的 `INTEGRATION.md`、`UPSTREAM_REVISION`、`LICENSE`。
 - C# / WebView2 为统一桌面外壳，罗盘页面与本地经营页面分开；远程罗盘页面不开放本机消息或宿主对象。
-- `BusinessBridge.cs`：仅处理本地工作台页面消息，通过标准输入 / 输出调用固定后台程序；本地文件通过原生选择框打开或保存。
+- `BusinessBridge.cs`：仅处理本地工作台页面消息，通过标准输入 / 输出复用固定后台程序，普通请求排队，模型生成独立启动；本地文件通过原生选择框打开或保存。
 - `business.html`、`business.js`：经营页面与选品卡片交接，使用现有 `desktop_app/core.py` 的计算和工作流。
-- `desktop_app/service.py`：JSON 命令接口、来源转换、幂等建档、财务和业务资料存储。没有本地监听端口。
+- `desktop_app/service.py`：JSON 命令接口、来源转换、幂等建档、财务和业务资料存储。`--serve` 使用逐行 JSON 协议和持续数据库连接，保留一次性调用兼容；没有本地监听端口。
 
 ## 构建
 
@@ -62,6 +66,9 @@ python -m unittest discover -s integrations/pants/tests -p test_skill_contract.p
 node --test integrations/pants/tests/render_selection_html.test.mjs integrations/pants/tests/compass_snapshot.test.mjs integrations/pants/tests/price_band_filter.test.mjs integrations/pants/tests/compass_navigation.test.mjs
 node --test integrations/pants/tests/factory_screen.test.mjs integrations/pants/tests/local_tool_saved_data.test.mjs
 python unified_desktop/check_release.py
+python unified_desktop/check_runtime.py
+node --test unified_desktop/tests/*.test.mjs
+python unified_desktop/check_data_performance.py
 python unified_desktop/check_release.py --mode collector
 python unified_desktop/check_release.py --mode update
 ```

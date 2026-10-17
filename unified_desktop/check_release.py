@@ -38,6 +38,8 @@ def main():
     if args.mode == 'unified':
         assert data['passed'] and data['unit_profit'] == 10 and data['rangeNotUsedAsPrice'], data
         assert data['upstreamTools']['video'] and data['upstreamTools']['reviews'] and data['upstreamTools']['staleResultCleared'] and data['upstreamTools']['marketSkill'] and data['upstreamTools']['demoReports'] == 2, data
+        assert all(data['performance'][key] for key in ('workerReused', 'invalidRequestRecovered', 'concurrentRequestsQueued', 'workerRestartPreservedData')), data
+        assert data['uiPerformance']['navigationReadsAvoided'] == 9 and data['uiPerformance']['artifactLoadedOnDemand'] and data['uiPerformance']['crossPageSearch'] and data['uiPerformance']['hiddenProductPreviewRemoved'], data
     else:
         assert data, '采集检查未返回结果。'
         if args.mode == 'collector':

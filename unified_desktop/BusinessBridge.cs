@@ -3,12 +3,16 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
 internal sealed partial class WorkbenchForm
 {
     private readonly List<Process> businessProcesses = new List<Process>();
+    private readonly SemaphoreSlim businessQueue = new SemaphoreSlim(1, 1);
+    private Process businessWorker;
+    private bool businessClosed;
     private void TestTrace(string message)
     {
         if (smokeOutput == null) return;
@@ -24,6 +28,53 @@ internal sealed partial class WorkbenchForm
     }
 
     private async Task<Dictionary<string, object>> BusinessCall(string command, Dictionary<string, object> args)
+    {
+        // Long model calls have their own process so ordinary pages stay responsive.
+        if (command == "generate_ai") return await OneShotBusinessCall(command, args);
+        await businessQueue.WaitAsync();
+        try {
+            if (businessClosed) throw new InvalidOperationException("工作台已关闭。");
+            if (businessWorker == null || businessWorker.HasExited) {
+                ResetBusinessWorker();
+                string helper = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "backend", "GarmentBackend.exe");
+                var info = new ProcessStartInfo(helper, "--serve --data-dir \"" + BusinessFolder + "\"") {
+                    UseShellExecute = false, CreateNoWindow = true, WindowStyle = ProcessWindowStyle.Hidden,
+                    RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true,
+                    StandardOutputEncoding = Encoding.UTF8, StandardErrorEncoding = Encoding.UTF8
+                };
+                businessWorker = new Process { StartInfo = info };
+                businessWorker.Start();
+                businessWorker.BeginErrorReadLine();
+                lock (businessProcesses) businessProcesses.Add(businessWorker);
+                TestTrace("backend worker started " + businessWorker.Id);
+            }
+            byte[] request = new UTF8Encoding(false).GetBytes(DesktopJson.Write(new Dictionary<string, object> { {"command", command}, {"args", args} }) + "\n");
+            await businessWorker.StandardInput.BaseStream.WriteAsync(request, 0, request.Length);
+            await businessWorker.StandardInput.BaseStream.FlushAsync();
+            var response = businessWorker.StandardOutput.ReadLineAsync();
+            if (await Task.WhenAny(response, Task.Delay(45000)) != response)
+                throw new TimeoutException("处理超时，请稍后重试；已保存资料保留。");
+            string raw = await response;
+            if (String.IsNullOrWhiteSpace(raw)) throw new IOException("经营组件已停止，请重试本次操作。");
+            TestTrace("backend worker completed " + command);
+            return DesktopJson.Object(raw);
+        } catch {
+            // Never replay a write automatically: it may already have committed.
+            ResetBusinessWorker();
+            throw;
+        } finally { businessQueue.Release(); }
+    }
+
+    private void ResetBusinessWorker()
+    {
+        var worker = businessWorker; businessWorker = null;
+        if (worker == null) return;
+        lock (businessProcesses) businessProcesses.Remove(worker);
+        try { if (!worker.HasExited) worker.Kill(); } catch (InvalidOperationException) { }
+        worker.Dispose();
+    }
+
+    private async Task<Dictionary<string, object>> OneShotBusinessCall(string command, Dictionary<string, object> args)
     {
         TestTrace("backend request " + command);
         string helper = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "backend", "GarmentBackend.exe");
@@ -57,6 +108,7 @@ internal sealed partial class WorkbenchForm
 
     private void StopBusinessProcesses()
     {
+        businessClosed = true;
         lock (businessProcesses) foreach (var process in businessProcesses) {
             try { if (!process.HasExited) process.Kill(); } catch (InvalidOperationException) { }
         }
@@ -103,6 +155,15 @@ internal sealed partial class WorkbenchForm
         try {
             var baseline = await BusinessCall("state", new Dictionary<string, object>());
             if (!(bool)baseline["ok"]) throw new InvalidOperationException("后台启动检查失败");
+            int workerId = businessWorker.Id;
+            var timer = Stopwatch.StartNew();
+            for (int i = 0; i < 10; i++) await BusinessCall("state", new Dictionary<string, object>());
+            long warmMilliseconds = timer.ElapsedMilliseconds;
+            if (businessWorker.Id != workerId) throw new InvalidOperationException("后台没有复用。");
+            var invalid = await BusinessCall("not-a-command", new Dictionary<string, object>());
+            if ((bool)invalid["ok"]) throw new InvalidOperationException("错误请求未拒绝。");
+            var parallel = await Task.WhenAll(BusinessCall("state", new Dictionary<string, object>()), BusinessCall("tool_example", new Dictionary<string, object> { {"tool", "video"} }));
+            foreach (var response in parallel) if (!(bool)response["ok"]) throw new InvalidOperationException("后台并发排队检查失败。");
             await view.CoreWebView2.ExecuteScriptAsync("document.getElementById('demo').click()");
             string result = await view.CoreWebView2.ExecuteScriptAsync("businessUI.runSmoke()");
             for (int attempt = 0; attempt < 300; attempt++) {
@@ -112,6 +173,11 @@ internal sealed partial class WorkbenchForm
             }
             var output = DesktopJson.Object(result);
             if (!output.ContainsKey("passed") || !(bool)output["passed"]) throw new InvalidOperationException(DesktopJson.Write(output));
+            var beforeRestart = await BusinessCall("state", new Dictionary<string, object>());
+            businessWorker.Kill(); businessWorker.WaitForExit();
+            var afterRestart = await BusinessCall("state", new Dictionary<string, object>());
+            if (DesktopJson.Write(beforeRestart) != DesktopJson.Write(afterRestart)) throw new InvalidOperationException("后台恢复后数据不一致。");
+            output["performance"] = new Dictionary<string, object> { {"warmStateRequests", 10}, {"warmStateMilliseconds", warmMilliseconds}, {"workerReused", true}, {"invalidRequestRecovered", true}, {"concurrentRequestsQueued", true}, {"workerRestartPreservedData", true} };
             Directory.CreateDirectory(Path.GetDirectoryName(smokeOutput));
             File.WriteAllText(smokeOutput, DesktopJson.Write(output), new UTF8Encoding(false));
             using (var stream = File.Create(Path.ChangeExtension(smokeOutput, ".png")))

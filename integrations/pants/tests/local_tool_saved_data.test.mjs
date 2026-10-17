@@ -55,6 +55,28 @@ function withTool(contents, check, options = {}) {
   }
 }
 
+test('desktop paginates large rankings, searches all rows and exports the entire filtered view', async () => {
+  const data=savedData(), template=data.products[0];
+  data.products=Array.from({length:205},(_,i)=>({...structuredClone(template),rank:i+1,product:{...structuredClone(template.product),id:'bulk-'+i,name:'测试款-'+i}}));
+  await withTool(data,async({el,downloads})=>{
+    assert.equal(el('preview').srcdoc,'');
+    assert.equal((el('cards').innerHTML.match(/class="product-card"/g)||[]).length,80);
+    assert.equal(el('card-pages').hidden,false);
+    assert.match(el('card-page-label').textContent,/1 \/ 3/);
+    el('card-next').listeners.click();assert.match(el('cards').innerHTML,/测试款-80</);
+    el('download').listeners.click();
+    const exported=await downloads.at(-1).blob.text();
+    assert.match(exported,/测试款-0</);assert.match(exported,/测试款-204</);
+    el('query').value='测试款-204';el('query').listeners.input();
+    assert.match(el('cards').innerHTML,/测试款-204</);
+    assert.equal((el('cards').innerHTML.match(/class="product-card"/g)||[]).length,1);
+    assert.equal(el('card-pages').hidden,true);
+    el('download').listeners.click();
+    const filtered=await downloads.at(-1).blob.text();
+    assert.match(filtered,/测试款-204</);assert.doesNotMatch(filtered,/测试款-0</);
+  },{desktop:true,chrome:{webview:{postMessage(){}}}});
+});
+
 test('saved ranking renders on opening without file import and keeps its actual period', () => {
   withTool(savedData(), ({ el, html }) => {
     assert.equal(el('saved').disabled, false);
