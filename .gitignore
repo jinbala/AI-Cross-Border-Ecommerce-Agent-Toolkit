@@ -54,3 +54,6 @@ desktop_app/.build/
 desktop_app/data/
 桌面版/
 服装生意工作台-Windows.zip
+服装生意工作台-整合版-*.zip
+integrations/pants/results/
+integrations/pants/dist/

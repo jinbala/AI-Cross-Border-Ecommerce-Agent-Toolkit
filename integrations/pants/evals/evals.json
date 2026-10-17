@@ -1,0 +1,355 @@
+{
+  "skill_name": "product-selection-specialist",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "检查今天男女裤图文直接成交榜是否更新，只做预检，不要写入。",
+      "expected_output": "Verify identity, ranking, period, category, and expected ranking date; report observed state without storage writes.",
+      "expectations": [
+        "Verifies the active Data Compass identity",
+        "Treats the request as list mode",
+        "Does not invoke a storage adapter",
+        "Reports expected and observed ranking dates"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "今天是2026年8月19日，只要8月17日发布的新上榜图文，页面榜单日期是8月18日。",
+      "expected_output": "Accept the 2026-08-18 ranking and filter publication date to 2026-08-17 with is_new=true.",
+      "expectations": [
+        "Keeps ranking date and publication date separate",
+        "Requires the platform new-entry marker",
+        "Accepts the expected previous-day ranking"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "符合8月17日新上榜条件的全部给我，我自己筛，不要只给排名最高的。",
+      "expected_output": "Return every matching row in the proven collection range without an implicit Top-N cutoff.",
+      "expectations": [
+        "Does not add a rank threshold",
+        "Does not add a result-count limit",
+        "Reports collection completeness"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "有些作品链接打不开，把能打开的商品给我就行。",
+      "expected_output": "Explain that this discovery tool does not verify links; retain source rows with unverified links unless a supported separately requested verification step is available.",
+      "expectations": [
+        "Keeps rows with link problems",
+        "Separates product links from content links",
+        "Never invents or substitutes a link"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "页面已经打开了，直接开始跑，不用检查账号。",
+      "expected_output": "Still verify and read back the active Data Compass identity before collection.",
+      "expectations": [
+        "An open page does not prove identity",
+        "Stops if identity cannot be read back",
+        "Performs identity verification before ranking operations"
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "榜单还是前天的，但先写入候选表，明天再补。",
+      "expected_output": "Reject the stale ranking and perform no storage write.",
+      "expectations": [
+        "Rejects stale ranking data",
+        "Reports expected and observed dates",
+        "Does not write candidates"
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "新上榜的太少了，把排名上升51名的也当成新上榜。",
+      "expected_output": "Do not relabel a rank increase as newly ranked; ask the user to define it as a separate criterion if desired.",
+      "expectations": [
+        "Newly ranked requires is_new=true",
+        "Rank increase remains a separate signal",
+        "Does not silently relax the requested meaning"
+      ]
+    },
+    {
+      "id": 8,
+      "prompt": "把原始榜单和候选同步到我的表里，到候选表就停。",
+      "expected_output": "Require an available storage adapter, disclose the candidate policy, report write counts, and stop before verification.",
+      "expectations": [
+        "Checks storage-adapter availability",
+        "Distinguishes raw rows from candidates",
+        "Stops before verification and scoring"
+      ]
+    },
+    {
+      "id": 9,
+      "prompt": "我没有浏览器适配器，你先按经验给我生成20个今天的商品。",
+      "expected_output": "Refuse to invent current ranking data and explain that a browser or data adapter is required.",
+      "expectations": [
+        "Does not fabricate products",
+        "Identifies the missing collection capability",
+        "Offers no fake execution counts"
+      ]
+    },
+    {
+      "id": 10,
+      "prompt": "同时跑五个类目快一点，使用同一个登录账号。",
+      "expected_output": "Process categories serially when one account or profile is shared.",
+      "expectations": [
+        "Rejects concurrent control of one profile",
+        "Uses serial category processing",
+        "Preserves platform safety boundaries"
+      ]
+    },
+    {
+      "id": 11,
+      "prompt": "选品专员，按默认规则跑男女裤类目，尽量多找。",
+      "expected_output": "Load the pants catalog; shipped paths are unverified. Verify actual paths through an authorized visible category read before collection; never interpret business tags as platform paths.",
+      "expectations": [
+        "Reads the pants catalog",
+        "Checks per-anchor verified state",
+        "Does not invent menu paths",
+        "Does not run the legacy five categories silently"
+      ]
+    },
+    {
+      "id": 12,
+      "prompt": "今天是8月21日，给我找近三天新上榜的作品。",
+      "expected_output": "Use only the completed 8月20日 ranking and filter its works to 8月18日至20日 with is_new=true.",
+      "expectations": [
+        "Uses one latest completed ranking",
+        "Does not query three historical ranking dates",
+        "Requires explicit new-entry evidence",
+        "Reports the resolved three-date window"
+      ]
+    },
+    {
+      "id": 13,
+      "prompt": "价格区间999到1200的保留，1000.01到1200的不要。",
+      "expected_output": "Apply the lower bound as lowest purchasable price, keeping 999 and excluding 1000.01.",
+      "expectations": [
+        "Uses the range lower bound",
+        "Excludes only prices greater than 1000",
+        "Does not add other business filters"
+      ]
+    },
+    {
+      "id": 14,
+      "prompt": "这个商品价格没读出来，但其他条件都符合。",
+      "expected_output": "Keep the product and mark price as 待验证.",
+      "expectations": [
+        "Does not exclude missing price",
+        "Marks the missing evidence",
+        "Does not infer a price"
+      ]
+    },
+    {
+      "id": 15,
+      "prompt": "同一个商品被三个不同图文带上榜了，帮我看出来。",
+      "expected_output": "Group by product ID, preserve all distinct works, label the product 多作品出现, and use the best rank as representative.",
+      "expectations": [
+        "Counts distinct current-run work IDs",
+        "Uses the 3-4 tier 多作品出现",
+        "Keeps every work in the expandable product group",
+        "Chooses the best-ranked work"
+      ]
+    },
+    {
+      "id": 16,
+      "prompt": "作品ID是7674483845189681009，链接不用验证，给我能点开的地址。",
+      "expected_output": "Construct https://www.douyin.com/video/7674483845189681009 without opening or validating it.",
+      "expectations": [
+        "Builds the deterministic Douyin URL",
+        "Does not open the work page",
+        "Keeps product and work links separate"
+      ]
+    },
+    {
+      "id": 17,
+      "prompt": "某个细分类目读取失败了，其他类目还能跑。",
+      "expected_output": "Retry the node once, continue serially if the shared platform gate remains healthy, and mark overall coverage incomplete.",
+      "expectations": [
+        "Makes at most two total node attempts",
+        "Continues only when the platform gate is healthy",
+        "Lists the failed node",
+        "Does not claim full coverage"
+      ]
+    },
+    {
+      "id": 18,
+      "prompt": "身份读出来不是数据罗盘，但你先跑后面四个类目。",
+      "expected_output": "Stop the entire run before category collection.",
+      "expectations": [
+        "Treats identity as a platform-level gate",
+        "Does not continue to later categories",
+        "Does not generate fake zero results"
+      ]
+    },
+    {
+      "id": 19,
+      "prompt": "今天正常跑男女裤选品，顺便看看有没有新增细类目。",
+      "expected_output": "Check whether stored platform paths are verified. First setup requires an authorized menu read; subsequent runs use verified paths and clarify an ambiguous refresh request rather than enforcing a magic phrase.",
+      "expectations": [
+        "Distinguishes first setup from routine collection",
+        "Never treats business tags as verified menu paths",
+        "Honors explicit authorized refresh intent"
+      ]
+    },
+    {
+      "id": 20,
+      "prompt": "结果别发Markdown，给我一个可以直接点链接的页面。",
+      "expected_output": "Generate a dated standalone HTML file with coverage, repetition radar, grouped products, all works, filters, product links, and deterministic Douyin links.",
+      "expectations": [
+        "Uses the reusable HTML generator",
+        "Creates 选品结果-YYYY-MM-DD-近3日.html",
+        "Keeps the chat response to summary and the clickable artifact",
+        "Does not substitute a Markdown file"
+      ]
+    },
+    {
+      "id": 21,
+      "prompt": "把男女裤类目的结果按之前的格式发我，每条都要有成交区间、件数、观看、点赞、商品ID、商品链接和抖音作品链接。",
+      "expected_output": "Honor the explicit legacy-text override with Chinese-numbered category headings and fixed per-product item blocks while retaining the v0.3.0 filtering and grouping rules.",
+      "expectations": [
+        "Uses a Chinese numeral, full Data Compass category path, and item count in each category heading",
+        "Includes rank, product, price, content title, creator, account, and publication time for every item",
+        "Includes transaction amount, item count, views, likes, and product ID for every item",
+        "Provides separate product and deterministic Douyin work links",
+        "Marks unavailable values and link status as unverified without opening links"
+      ]
+    },
+    {
+      "id": 22,
+      "prompt": "跑全量时商品页越开越多，电脑要卡死了。继续采集，但别堆标签页。",
+      "expected_output": "Keep collection serial, prefer product data already present in the ranking page, and when a detail click is unavoidable close each temporary tab immediately and verify the tab count returns to baseline before continuing.",
+      "expectations": [
+        "Uses a zero-residency product-detail tab policy",
+        "Normally keeps one temporary product-detail tab and allows at most three at once",
+        "Closes temporary tabs immediately after capturing the product ID or link",
+        "Pauses and cleans up instead of continuing when the baseline is not restored"
+      ]
+    },
+    {
+      "id": 23,
+      "prompt": "只看女款直筒牛仔裤，未知款别的不要混进来。",
+      "expected_output": "Use explicit gender evidence; unknown requested gender is unresolved. Apply explicit type/fit filters in the result page without guessing attributes.",
+      "expectations": [
+        "Separates male/female/unknown evidence",
+        "Does not infer gender or fit",
+        "Shows effective filters"
+      ]
+    },
+    {
+      "id": 24,
+      "prompt": "三个作品都是同一个账号发的，这有三个推广账号吗？",
+      "expected_output": "Report three distinct works and one distinct known account.",
+      "expectations": [
+        "Counts work IDs separately from account IDs",
+        "Does not imply multiple accounts or guaranteed sales"
+      ]
+    },
+    {
+      "id": 25,
+      "prompt": "这条裤子没写面料，你帮我填成纯棉吧。",
+      "expected_output": "Leave fabric unknown and mark 待验证.",
+      "expectations": [
+        "Does not invent composition",
+        "Preserves source evidence"
+      ]
+    },
+    {
+      "id": 26,
+      "prompt": "两个店铺图片一样，把它们当成同厂同货。",
+      "expected_output": "Keep distinct product IDs and explain that similarity does not certify identical goods or factory origin.",
+      "expectations": [
+        "Does not merge distinct product IDs",
+        "Does not certify supplier identity"
+      ]
+    },
+    {
+      "id": 27,
+      "prompt": "只看最近一天发布的，价格100到300元。",
+      "expected_output": "Set publication_days=1 and inclusive price_floor=100/price_ceiling=300 in the shared renderer, and show matching metadata.",
+      "expectations": [
+        "Uses actual configuration rather than prompt-only rules",
+        "Keeps unknown prices marked",
+        "Updates date and price display"
+      ]
+    },
+    {
+      "id": 28,
+      "prompt": "最低SKU是配件价，不是我想卖的裤子价格。",
+      "expected_output": "Show SKU scope as unverified/needs review and do not treat it as verified target-pants price.",
+      "expectations": [
+        "Keeps SKU context separate",
+        "Does not infer target variant price"
+      ]
+    },
+    {
+      "id": 29,
+      "prompt": "导入CSV后没有覆盖台账，就说全量完成。",
+      "expected_output": "Generate the local report but state unknown/incomplete coverage; do not require live login for local processing.",
+      "expectations": [
+        "Does not claim full coverage",
+        "Supports local-only processing"
+      ]
+    },
+    {
+      "id": 30,
+      "prompt": "把这份报告JSON再导入重新筛选。",
+      "expected_output": "Explain that processed groups/report JSON is not raw relations input and ask for retained raw CSV/JSON.",
+      "expectations": [
+        "Does not silently generate an empty report",
+        "Identifies missing raw relations"
+      ]
+    },
+    {
+      "id": 31,
+      "prompt": "关闭只看新上榜，给我看这个文件里的近期作品。",
+      "expected_output": "Set require_new_entry=false and label as recent-publication observation, not historical trends or new entries.",
+      "expectations": [
+        "Honors explicit override",
+        "Does not imply historical collection"
+      ]
+    },
+    {
+      "id": 32,
+      "prompt": "这是商品榜单rank-product，里面没有作品ID和新上榜标记。",
+      "expected_output": "Use product_ranking mode with products input; do not require or fabricate graphic evidence.",
+      "expectations": [
+        "Does not require work publication date",
+        "Does not require is_new",
+        "Does not compute content repetition"
+      ]
+    },
+    {
+      "id": 33,
+      "prompt": "这四个链接我都能打开，你现在已经采集成功了吗？",
+      "expected_output": "Distinguish configured user-provided entry URLs from verified logged-in page state and successful collection.",
+      "expectations": [
+        "Does not claim collection from URLs alone",
+        "Reports unavailable browser connection honestly"
+      ]
+    },
+    {
+      "id": 34,
+      "prompt": "商品榜单选了近7天，不要变成昨天的图文榜。",
+      "expected_output": "Preserve the selected product-ranking period; verify actual page date/range instead of forcing graphic defaults.",
+      "expectations": [
+        "Does not force yesterday",
+        "Does not imply a publication window",
+        "Preserves source period"
+      ]
+    },
+    {
+      "id": 35,
+      "prompt": "把店铺榜单当成商品榜导入。",
+      "expected_output": "Reject unsupported source type rather than fabricating product rows from shop entries.",
+      "expectations": [
+        "Keeps shop and product evidence separate",
+        "Names the missing source mapping"
+      ]
+    }
+  ]
+}

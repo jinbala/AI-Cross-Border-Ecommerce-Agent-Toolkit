@@ -1,0 +1,8 @@
+# Optional developer connection. Desktop daily use does not require this MCP.
+# Copy to .codex/config.toml and adjust the standard Edge path if needed.
+# Keep browser tokens and credentials out of this file.
+[mcp_servers.playwright_edge]
+command = "cmd.exe"
+args = ["/d", "/c", "npx.cmd", "-y", "@playwright/mcp@0.0.83", "--extension", "--browser", "msedge", "--executable-path", 'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe']
+startup_timeout_sec = 60
+tool_timeout_sec = 300

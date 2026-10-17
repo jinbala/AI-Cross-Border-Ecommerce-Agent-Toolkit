@@ -1,0 +1,163 @@
+{
+  "schema_version": 2,
+  "catalog_version": "2026-10-13",
+  "business_timezone": "Asia/Shanghai",
+  "source": {
+    "method": "2026-10-13 已授权 Edge 商品榜单的可见级联菜单核实",
+    "verified": true,
+    "source_url": "https://compass.jinritemai.com/shop/chance/rank-product"
+  },
+  "runtime_policy": {
+    "discover_categories_each_run": false,
+    "require_verified_paths": true,
+    "scan_order": "anchors order, then explicit scan_nodes order",
+    "include_aggregate": false,
+    "leaf_paths_are_exact": true
+  },
+  "anchors": [
+    {
+      "logical_name": "男裤",
+      "path": [
+        "服饰内衣",
+        "服装",
+        "男装"
+      ],
+      "verified": true,
+      "third_level_categories": [
+        "全部",
+        "短裤",
+        "牛仔裤",
+        "休闲裤",
+        "其他裤子",
+        "西裤",
+        "皮裤",
+        "羽绒裤",
+        "棉裤"
+      ],
+      "business_tags": [
+        "牛仔裤",
+        "休闲裤",
+        "西装裤",
+        "运动裤",
+        "短裤"
+      ],
+      "include_aggregate": false,
+      "scan_nodes": [
+        [
+          "服饰内衣",
+          "服装",
+          "男装",
+          "短裤"
+        ],
+        [
+          "服饰内衣",
+          "服装",
+          "男装",
+          "牛仔裤"
+        ],
+        [
+          "服饰内衣",
+          "服装",
+          "男装",
+          "休闲裤"
+        ],
+        [
+          "服饰内衣",
+          "服装",
+          "男装",
+          "其他裤子"
+        ],
+        [
+          "服饰内衣",
+          "服装",
+          "男装",
+          "西裤"
+        ],
+        [
+          "服饰内衣",
+          "服装",
+          "男装",
+          "皮裤"
+        ],
+        [
+          "服饰内衣",
+          "服装",
+          "男装",
+          "羽绒裤"
+        ],
+        [
+          "服饰内衣",
+          "服装",
+          "男装",
+          "棉裤"
+        ]
+      ],
+      "verification_note": "菜单路径已核实；未宣称这些节点均完成数据采集。只扫描 scan_nodes，不扫描男女装全部，也不在叶子末尾追加全部。"
+    },
+    {
+      "logical_name": "女裤",
+      "path": [
+        "服饰内衣",
+        "服装",
+        "女装"
+      ],
+      "verified": true,
+      "third_level_categories": [
+        "全部",
+        "西裤",
+        "短裤",
+        "其他裤子",
+        "休闲裤",
+        "牛仔裤",
+        "鲨鱼裤/打底裤"
+      ],
+      "business_tags": [
+        "牛仔裤",
+        "休闲裤",
+        "西装裤",
+        "运动裤",
+        "短裤"
+      ],
+      "include_aggregate": false,
+      "scan_nodes": [
+        [
+          "服饰内衣",
+          "服装",
+          "女装",
+          "西裤"
+        ],
+        [
+          "服饰内衣",
+          "服装",
+          "女装",
+          "短裤"
+        ],
+        [
+          "服饰内衣",
+          "服装",
+          "女装",
+          "其他裤子"
+        ],
+        [
+          "服饰内衣",
+          "服装",
+          "女装",
+          "休闲裤"
+        ],
+        [
+          "服饰内衣",
+          "服装",
+          "女装",
+          "牛仔裤"
+        ],
+        [
+          "服饰内衣",
+          "服装",
+          "女装",
+          "鲨鱼裤/打底裤"
+        ]
+      ],
+      "verification_note": "菜单路径已核实；未宣称这些节点均完成数据采集。只扫描 scan_nodes，不扫描男女装全部，也不在叶子末尾追加全部。"
+    }
+  ]
+}

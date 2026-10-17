@@ -1,0 +1,79 @@
+{
+  "meta": {
+    "ranking_date": "2026-08-20",
+    "generated_at": "2026-08-21T09:00:00+08:00"
+  },
+  "coverage": [
+    {"category_path": ["个护家清", "个人护理", "全部"], "status": "complete", "attempts": 1, "rows": 200},
+    {"category_path": ["美妆", "彩妆香水", "唇部彩妆", "全部"], "status": "complete", "attempts": 1, "rows": 86},
+    {"category_path": ["食品饮料", "休闲食品", "糕点/点心", "全部"], "status": "failed", "attempts": 2, "rows": 0}
+  ],
+  "failed_nodes": [
+    {"category_path": ["食品饮料", "休闲食品", "糕点/点心", "全部"], "reason": "两次读取均未取得稳定行"}
+  ],
+  "relations": [
+    {
+      "ranking_date": "2026-08-20",
+      "category_path": ["个护家清", "个人护理", "身体清洁", "全部"],
+      "rank": 3,
+      "is_new": true,
+      "product": {"id": "P1001", "name": "氨基酸净澈沐浴露双瓶装", "price_display": "¥79–¥99", "price_min": 79, "link": "https://haohuo.jinritemai.com/ecommerce/trade/detail/index.html?id=P1001"},
+      "work": {"id": "W1001", "title": "洗完皮肤真的很清爽", "author": "清洁研究所", "account": "clean_lab", "published_at": "2026-08-20T13:26:00+08:00"},
+      "metrics": {"transaction_amount": "¥5,000–¥7,500", "sales_count": "50–75", "views": "10万–25万", "likes": "250–500"}
+    },
+    {
+      "ranking_date": "2026-08-20",
+      "category_path": ["个护家清", "个人护理", "身体清洁", "全部"],
+      "rank": 8,
+      "is_new": true,
+      "product": {"id": "P1001", "name": "氨基酸净澈沐浴露双瓶装", "price_display": "¥79–¥99", "price_min": 79, "link": "https://haohuo.jinritemai.com/ecommerce/trade/detail/index.html?id=P1001"},
+      "work": {"id": "W1002", "title": "浴室里不能少的清洁搭子", "author": "小满日用", "account": "xiaoman_daily", "published_at": "2026-08-19T09:18:00+08:00"},
+      "metrics": {"transaction_amount": "¥2,500–¥5,000", "sales_count": "25–50", "views": "7.5万–10万", "likes": "100–250"}
+    },
+    {
+      "ranking_date": "2026-08-20",
+      "category_path": ["个护家清", "个人护理", "身体护理", "全部"],
+      "rank": 19,
+      "is_new": true,
+      "product": {"id": "P1001", "name": "氨基酸净澈沐浴露双瓶装", "price_display": "¥79–¥99", "price_min": 79, "link": "https://haohuo.jinritemai.com/ecommerce/trade/detail/index.html?id=P1001"},
+      "work": {"id": "W1003", "title": "夏天洗澡就要这种肤感", "author": "阿布的浴室", "account": "abu_bath", "published_at": "2026-08-18T21:05:00+08:00"},
+      "metrics": {"transaction_amount": "¥1,000–¥2,500", "sales_count": "0–25", "views": "5万–7.5万", "likes": "100–250"}
+    },
+    {
+      "ranking_date": "2026-08-20",
+      "category_path": ["美妆", "彩妆香水", "唇部彩妆", "全部"],
+      "rank": 6,
+      "is_new": true,
+      "product": {"id": "P2001", "name": "丝绒雾面唇釉礼盒", "price_display": "¥129", "price_min": 129, "link": "https://haohuo.jinritemai.com/ecommerce/trade/detail/index.html?id=P2001"},
+      "work": {"id": "W2001", "title": "黄皮也能放心涂的显白色", "author": "口红试色间", "account": "lip_room", "published_at": "2026-08-20T10:12:00+08:00"},
+      "metrics": {"transaction_amount": "¥2,500–¥5,000", "sales_count": "25–50", "views": "7.5万–10万", "likes": "250–500"}
+    },
+    {
+      "ranking_date": "2026-08-20",
+      "category_path": ["美妆", "彩妆香水", "唇部彩妆", "全部"],
+      "rank": 21,
+      "is_new": true,
+      "product": {"id": "P2001", "name": "丝绒雾面唇釉礼盒", "price_display": "¥129", "price_min": 129, "link": "https://haohuo.jinritemai.com/ecommerce/trade/detail/index.html?id=P2001"},
+      "work": {"id": "W2002", "title": "七夕礼物这样选不会出错", "author": "一颗桃子", "account": "peach_makeup", "published_at": "2026-08-18T18:40:00+08:00"},
+      "metrics": {"transaction_amount": "¥1,000–¥2,500", "sales_count": "0–25", "views": "5万–7.5万", "likes": "100–250"}
+    },
+    {
+      "ranking_date": "2026-08-20",
+      "category_path": ["智能家居", "居家日用", "收纳整理工具", "全部"],
+      "rank": 11,
+      "is_new": true,
+      "product": {"id": "P3001", "name": "免打孔抽屉收纳盒", "price_display": "价格待验证", "price_min": null, "link": "https://haohuo.jinritemai.com/ecommerce/trade/detail/index.html?id=P3001"},
+      "work": {"id": "W3001", "title": "桌面乱的人一定要试试", "author": "住进小家", "account": "tiny_home", "published_at": "2026-08-19T16:30:00+08:00"},
+      "metrics": {"transaction_amount": "¥1,000–¥2,500", "sales_count": "25–50", "views": "2.5万–5万", "likes": "100–250"}
+    },
+    {
+      "ranking_date": "2026-08-20",
+      "category_path": ["滋补保健", "营养保健/特医食品", "营养膳食", "全部"],
+      "rank": 24,
+      "is_new": null,
+      "product": {"id": "P4001", "name": "复合维生素片", "price_display": "¥89", "price_min": 89, "link": "https://haohuo.jinritemai.com/ecommerce/trade/detail/index.html?id=P4001"},
+      "work": {"id": "W4001", "title": "", "author": "营养笔记", "account": "nutrition_note", "published_at": "2026-08-20T08:00:00+08:00"},
+      "metrics": {}
+    }
+  ]
+}

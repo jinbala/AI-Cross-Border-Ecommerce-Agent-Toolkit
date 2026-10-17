@@ -1,0 +1,8 @@
+{
+  "publication_days": 3,
+  "price_floor": 0,
+  "price_ceiling": 1000,
+  "require_new_entry": true,
+  "timezone": "Asia/Shanghai",
+  "gender": "全部"
+}

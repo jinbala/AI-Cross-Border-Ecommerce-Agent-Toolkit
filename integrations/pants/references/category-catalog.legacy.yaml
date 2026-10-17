@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "catalog_version": "2026-08-21",
+  "business_timezone": "Asia/Shanghai",
+  "source": {
+    "method": "One-time authorized read of the Data Compass category cascader, cross-checked with a user-provided screenshot",
+    "captured_date": "2026-08-21",
+    "identity_requirement": "抖店数据罗盘"
+  },
+  "runtime_policy": {
+    "discover_categories_each_run": false,
+    "scan_order": "anchor order, then third_level_categories order",
+    "specific_third_level_fourth_level": "全部",
+    "update_trigger": "Only when the user explicitly asks 更新细分类目 and provides screenshots or authorizes a fresh read"
+  },
+  "anchors": [
+    {
+      "logical_name": "个护家清",
+      "path": ["个护家清", "个人护理"],
+      "third_level_categories": [
+        "全部", "面部洗护", "手部洗护", "身体清洁", "身体护理", "唇部护理", "私处洗护",
+        "眼部护理", "洗护美用具", "洗发护发", "染发烫发", "假发", "口腔护理", "成人护理"
+      ]
+    },
+    {
+      "logical_name": "彩妆香水",
+      "path": ["美妆", "彩妆香水"],
+      "third_level_categories": [
+        "全部", "香水/香膏", "面部彩妆", "美妆工具", "眼部彩妆", "唇部彩妆", "其他彩妆用品", "美甲产品"
+      ]
+    },
+    {
+      "logical_name": "休闲食品",
+      "path": ["食品饮料", "休闲食品"],
+      "third_level_categories": [
+        "全部", "海味零食", "坚果炒货", "面包", "糕点/点心", "饼干", "巧克力", "素食零食",
+        "肉蛋零食", "膨化食品", "蜜饯果干", "其他零食", "冰淇淋", "糖果/果冻/布丁", "混合零食礼包/礼盒"
+      ]
+    },
+    {
+      "logical_name": "居家日用",
+      "path": ["智能家居", "居家日用"],
+      "third_level_categories": [
+        "全部", "床上用品", "居家饰品", "居家布艺", "收纳整理工具", "卫浴用具", "雨具",
+        "火机烟具", "婚庆用品", "节日/装扮用品", "其他家居日用", "日常护理", "缝纫DIY配件及工具"
+      ]
+    },
+    {
+      "logical_name": "营养保健特医食品",
+      "path": ["滋补保健", "营养保健/特医食品"],
+      "third_level_categories": ["全部", "保健食品", "特医食品", "营养膳食"]
+    }
+  ]
+}

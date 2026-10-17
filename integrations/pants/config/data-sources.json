@@ -1,0 +1,10 @@
+{
+  "default_source": "product_ranking",
+  "verification": "user_provided_urls_only",
+  "sources": [
+    { "id": "product_ranking", "label": "商品榜单", "url": "https://compass.jinritemai.com/shop/chance/rank-product", "purpose": "选款主入口", "collection_verified": true, "verified_at": "2026-10-13", "verified_scope": "女装牛仔裤、男装休闲裤各首页10条；总榜近7天；非全量、非无人值守翻页" },
+    { "id": "category_mining", "label": "类目挖掘", "url": "https://compass.jinritemai.com/shop/chance/category-mining", "purpose": "类目机会分析入口", "collection_verified": false },
+    { "id": "category_overview", "label": "类目概况", "url": "https://compass.jinritemai.com/shop/chance/category-overview", "purpose": "类目整体情况入口", "collection_verified": false },
+    { "id": "shop_ranking", "label": "店铺榜单", "url": "https://compass.jinritemai.com/shop/chance/rank-shop", "purpose": "竞品店铺观察入口", "collection_verified": false }
+  ]
+}

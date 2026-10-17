@@ -1,0 +1,41 @@
+<!doctype html><html><meta charset="utf-8"><title>自动更新测试夹具（非真实数据）</title>
+<style>body{font:15px sans-serif;padding:20px}button,[role=menuitemcheckbox]{cursor:pointer;margin:4px;padding:6px}table{width:100%}td,th{padding:6px;text-align:left}#menu{border:1px solid #ccc;padding:8px}li{display:inline-block;margin:8px;cursor:pointer}</style>
+<div class="userName-test">测试店铺</div>
+<div class="aurora-cascader"><span id="category">服饰内衣 / 服装 / 女装 / 牛仔裤</span><input role="combobox" aria-expanded="false" onmousedown="openMenu()"></div><div id="menu" hidden></div>
+<div id="tabs"><button role="tab" aria-selected="true">总榜</button><button role="tab" aria-selected="false">近1天</button><button role="tab" aria-selected="true">近7天</button><button role="tab" aria-selected="false">近30天</button></div>
+<p id="dates">2026/10/06 - 2026/10/12</p>
+<input placeholder="可搜索所选条件下的商品名，按回车键搜索">
+<div><span>品牌类型</span><button onclick="scheduleRows()">不限</button><button>知名品牌</button></div>
+<div id="prices"></div>
+<div class="aurora-modal-container" hidden><h3>价格范围选择</h3><label>价格大于<input placeholder="输入最小值"></label><label>价格小于<input placeholder="输入最大值"></label><button id="cancel-price">取消</button><button id="confirm-price">确定</button></div>
+<table><thead><tr><th>排名</th><th>商品</th><th>店铺名称</th><th>用户支付金额</th><th>点击次数</th><th>成交件数</th><th>点击成交转化率</th><th>操作</th></tr></thead><tbody></tbody></table><ul id="pages"></ul>
+<script>
+let path=['服饰内衣','服装','女装','牛仔裤'],period='近7天',page=1,price='all',renderTimer,customMin='',customMax='';
+const leaves={女装:['西裤','短裤','其他裤子','休闲裤','牛仔裤','鲨鱼裤/打底裤','测试上衣'],男装:['短裤','牛仔裤','休闲裤','其他裤子','西裤','皮裤','羽绒裤','棉裤']};
+const prices={all:[0,Infinity],'0-50':[0,50],'50-70':[50,70],'70-99':[70,99],'99-150':[99,150],'150+':[150,Infinity],'0-40':[0,40],'40-60':[40,60],'60-85':[60,85],'85-138':[85,138],'138+':[138,Infinity]};
+function renderPrices(){const group=document.getElementById('prices');group.innerHTML='<span>价格带</span>';for(const id of ['all',...(path[2]==='女装'?['0-40','40-60','60-85','85-138','138+']:['0-50','50-70','70-99','99-150','150+']),'custom']){const button=document.createElement('button');button.textContent=id==='all'?'不限':id==='custom'?'自定义':id.replace('+','以上');button.dataset.price=id;button.setAttribute('aria-pressed',String(price===id));button.onclick=()=>{if(id==='custom'){document.querySelector('[placeholder="输入最小值"]').value=customMin;document.querySelector('[placeholder="输入最大值"]').value=customMax;document.querySelector('.aurora-modal-container').hidden=false;return;}price=id;page=1;renderPrices();scheduleRows();};group.appendChild(button);}}
+document.getElementById('cancel-price').onclick=()=>{document.querySelector('.aurora-modal-container').hidden=true;};
+document.getElementById('confirm-price').onclick=()=>{customMin=document.querySelector('[placeholder="输入最小值"]').value;customMax=document.querySelector('[placeholder="输入最大值"]').value;prices.custom=[customMin===''?0:Number(customMin),customMax===''?Infinity:Number(customMax)];price='custom';page=1;document.querySelector('.aurora-modal-container').hidden=true;renderPrices();scheduleRows();};
+function menuItems(names, action){const menu=document.getElementById('menu');menu.replaceChildren();for(const name of names){const el=document.createElement('div');el.setAttribute('role','menuitemcheckbox');el.textContent=name;el.onclick=()=>action(name);menu.appendChild(el);}}
+function openMenu(){document.getElementById('menu').hidden=false;document.querySelector('[role=combobox]').setAttribute('aria-expanded','true');menuItems(['服饰内衣'],()=>menuItems(['服装'],()=>menuItems(['女装','男装'],gender=>menuItems(leaves[gender],leaf=>{path=['服饰内衣','服装',gender,leaf];document.getElementById('category').textContent=path.join(' / ');document.getElementById('menu').hidden=true;document.querySelector('[role=combobox]').setAttribute('aria-expanded','false');price='all';page=1;document.getElementById('prices').innerHTML='<span>价格带</span><button>自定义</button>';scheduleRows();}))));}
+function scheduleRows(){clearTimeout(renderTimer);document.querySelector('table').setAttribute('aria-busy','true');renderTimer=setTimeout(renderRows,350);}
+function renderRows(){
+ renderPrices();
+ const bands=[[45,45],[80,99],[110,110],[190,190]],base=path[2]==='女装'?'100000000000000000':'200000000000000000';
+ const rows=bands.map(([min,max],i)=>({id:base+(i+1),min,max,name:'测试'+path[2]+path[3]+(i+1)})).filter(p=>p.min<=prices[price][1]&&p.max>=prices[price][0]);
+ const tbody=document.querySelector('tbody');tbody.replaceChildren();
+ if(!rows.length){const row=document.createElement('tr');row.innerHTML='<td colspan="8">暂无数据</td>';tbody.appendChild(row);}
+ for(const [index,product] of rows.entries()){
+   if(Math.floor(index/2)+1!==page)continue;
+   const rank=index+1,tr=document.createElement('tr');tr.setAttribute('data-row-key',product.id+'_'+rank);
+   tr.innerHTML='<td><span class="rank-test">'+rank+'</span></td><td><div class="name-test">'+product.name+'</div><div class="price-test">价格带 ¥'+product.min+(product.max!==product.min?'-¥'+product.max:'')+'</div></td><td><div class="shop-test"><div class="name-test">测试商家</div></div></td><td>¥100万-¥250万</td><td>10万-25万</td><td>1000-2500</td><td>10%-20%</td><td><button disabled>查看详情</button></td>';
+   tr.querySelector('.name-test').onclick=()=>window.open('https://haohuo.jinritemai.com/ecommerce/trade/detail/index.html?id='+product.id+'&origin_type=pc_compass_manage');tbody.appendChild(tr);
+ }
+ const pages=document.getElementById('pages');pages.replaceChildren();const total=document.createElement('li');total.textContent='共'+rows.length+'条';pages.appendChild(total);
+ for(let n=1;n<=Math.ceil(rows.length/2);n++){const el=document.createElement('li');el.className='aurora-pagination-item'+(page===n?' pagination-item-active':'');el.textContent=n;el.onclick=()=>{page=n;scheduleRows();};pages.appendChild(el);}
+ const next=document.createElement('li');const end=page>=Math.ceil(rows.length/2);next.className='aurora-pagination-next'+(end?' aurora-pagination-disabled':'');next.setAttribute('aria-disabled',String(end));next.textContent='下一页';next.onclick=()=>{if(!end){page++;scheduleRows();}};pages.appendChild(next);
+ document.querySelector('table').setAttribute('aria-busy','false');
+}
+document.querySelectorAll('#tabs [role=tab]').forEach(el=>el.onclick=()=>{if(el.textContent!=='总榜'){period=el.textContent;document.querySelectorAll('#tabs [role=tab]').forEach(b=>{if(b.textContent!=='总榜')b.setAttribute('aria-selected',String(b===el));});document.getElementById('dates').textContent=(period==='近1天'?'2026/10/12':period==='近30天'?'2026/09/13':'2026/10/06')+' - 2026/10/12';}page=1;scheduleRows();});
+renderRows();
+</script></html>

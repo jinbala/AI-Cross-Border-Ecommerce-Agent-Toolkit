@@ -1,0 +1,163 @@
+{
+  "meta": {
+    "ranking_date": "2026-10-12",
+    "source_type": "product_ranking",
+    "ranking_name": "商品榜单",
+    "period": "演示周期",
+    "is_demo": true
+  },
+  "products": [
+    {
+      "ranking_date": "2026-10-12",
+      "category_path": [
+        "女款",
+        "牛仔裤"
+      ],
+      "rank": 1,
+      "product": {
+        "id": "DEMO-W01",
+        "name": "女款高腰直筒牛仔裤",
+        "price_min": 129,
+        "price_display": "¥129",
+        "price_sku": "标准款（演示）",
+        "link": "",
+        "shop": "演示店铺1",
+        "apparel": {
+          "gender": "女款",
+          "type": "牛仔裤",
+          "fit": "直筒",
+          "fabric": "棉混纺（演示）",
+          "season": "春秋",
+          "sizes": "S–XL"
+        }
+      },
+      "metrics": {
+        "transaction_amount": "¥1,000–¥2,500（演示）",
+        "sales_count": "0–25（演示）",
+        "views": "1万–2万（演示）"
+      }
+    },
+    {
+      "ranking_date": "2026-10-12",
+      "category_path": [
+        "女款",
+        "西装裤"
+      ],
+      "rank": 6,
+      "product": {
+        "id": "DEMO-W02",
+        "name": "女款通勤阔腿裤",
+        "price_min": 169,
+        "price_display": "¥169",
+        "price_sku": "标准款（演示）",
+        "link": "",
+        "shop": "演示店铺2",
+        "apparel": {
+          "gender": "女款",
+          "type": "西装裤",
+          "fit": "阔腿",
+          "fabric": "聚酯混纺（演示）",
+          "season": "春秋",
+          "sizes": "S–XXL"
+        }
+      },
+      "metrics": {
+        "transaction_amount": "¥1,000–¥2,500（演示）",
+        "sales_count": "0–25（演示）",
+        "views": "1万–2万（演示）"
+      }
+    },
+    {
+      "ranking_date": "2026-10-12",
+      "category_path": [
+        "男款",
+        "休闲裤"
+      ],
+      "rank": 11,
+      "product": {
+        "id": "DEMO-M01",
+        "name": "男款休闲锥形裤",
+        "price_min": 159,
+        "price_display": "¥159",
+        "price_sku": "标准款（演示）",
+        "link": "",
+        "shop": "演示店铺3",
+        "apparel": {
+          "gender": "男款",
+          "type": "休闲裤",
+          "fit": "锥形",
+          "fabric": "棉混纺（演示）",
+          "season": "春秋",
+          "sizes": "M–XXXL"
+        }
+      },
+      "metrics": {
+        "transaction_amount": "¥1,000–¥2,500（演示）",
+        "sales_count": "0–25（演示）",
+        "views": "1万–2万（演示）"
+      }
+    },
+    {
+      "ranking_date": "2026-10-12",
+      "category_path": [
+        "男款",
+        "运动裤"
+      ],
+      "rank": 16,
+      "product": {
+        "id": "DEMO-M02",
+        "name": "男款松紧腰运动裤",
+        "price_min": null,
+        "price_display": "",
+        "price_sku": "标准款（演示）",
+        "link": "",
+        "shop": "演示店铺4",
+        "apparel": {
+          "gender": "男款",
+          "type": "运动裤",
+          "fit": "直筒",
+          "fabric": "",
+          "season": "四季",
+          "sizes": "M–XXL"
+        }
+      },
+      "metrics": {
+        "transaction_amount": "¥1,000–¥2,500（演示）",
+        "sales_count": "0–25（演示）",
+        "views": "1万–2万（演示）"
+      }
+    },
+    {
+      "ranking_date": "2026-10-12",
+      "category_path": [
+        "女款",
+        "休闲裤"
+      ],
+      "rank": 21,
+      "product": {
+        "id": "DEMO-W03",
+        "name": "女款微喇长裤",
+        "price_min": 99,
+        "price_display": "¥99",
+        "price_sku": "标准款（演示）",
+        "link": "",
+        "shop": "演示店铺5",
+        "apparel": {
+          "gender": "女款",
+          "type": "休闲裤",
+          "fit": "微喇",
+          "fabric": "",
+          "season": "春秋",
+          "sizes": "S–L"
+        }
+      },
+      "metrics": {
+        "transaction_amount": "¥1,000–¥2,500（演示）",
+        "sales_count": "0–25（演示）",
+        "views": "1万–2万（演示）"
+      }
+    }
+  ],
+  "coverage": [],
+  "failed_nodes": []
+}

@@ -2,9 +2,11 @@
 
 **AI 跨境电商运营智能体工具箱** · *Turn cross-border ecommerce SOPs into reusable AI Agent workflows.*
 
-> **Windows 桌面版 1.3 已提供**：双击根目录 `启动服装生意工作台.cmd`，或打开 `桌面版/服装生意工作台-1.3.exe`。新版采用浅色侧栏、紧凑标题和统一按钮；选品清单支持搜索、进度切换和独立添加窗口。选品支持 **粘贴表格自动整理、直接读取 Excel、用款式名或链接先收集线索**，来源资料可后补。内含产品档案、利润测算、七类 AI 工作流、8 类条件筛选及业务台账。基础功能离线可用；模型接口按需配置。用法与构建见 [desktop_app/README.md](./desktop_app/README.md)，资料来源与口径见 [选品实操说明](./docs/06_Selection_Practice.md)。可执行文件为本地构建产物，不纳入 Git。
+> **Windows 整合桌面版 2.0 已提供**：双击根目录 `启动服装生意工作台.cmd`，或打开 `桌面版/服装生意工作台-2.0/服装生意工作台.exe`。已合并裤装项目的**罗盘取数、筛选和收藏**，同一窗口中可直接**建档算利润、准备 AI 任务、记录测款结果**。款名 / 链接 / 表格录入、Excel 和 8 类参考条件继续可用。首次罗盘登录需本人扫码及账号具有权限，基础经营工具离线可用。用法与构建见 [整合版说明](./unified_desktop/README.md)，升级和验证见 [2.0 更新说明](./docs/09_Desktop_v2.0_Release_Notes.md)。程序与个人数据不纳入 Git；经典 Tk 版见 [原桌面版说明](./desktop_app/README.md)。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+
+桌面版开发与维护记录见 [2.0 开发备注](./docs/10_Desktop_v2.0_Development_Notes.md)。
 [![Status: v0.3 beta](https://img.shields.io/badge/status-v0.3%20beta-orange.svg)](./CHANGELOG.md)
 [![Agents: 7/7 done](https://img.shields.io/badge/agents-7%2F7%20done-brightgreen.svg)](#-agent-全景)
 
@@ -14,7 +16,7 @@
 
 把**跨境运营 SOP 里沉淀的经验**，翻译成**可复制的 AI Agent 工作流**：一个标准 Prompt + 一份输入模板 + 一个真实案例，任何人都能拿去直接跑出可发布的商品素材。
 
-不是软件，不是 SaaS，只做四件事：
+原始工具箱沉淀四类可复用资料，Windows 桌面版进一步将这些资料接入实际经营流程：
 
 | 交付物 | 说明 |
 |---|---|
