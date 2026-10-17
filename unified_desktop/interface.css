@@ -108,7 +108,18 @@ input[type=checkbox] { accent-color: #245bd6; width: 16px; height: 16px; }
 .biz-kpi small { color: #435974; }
 .biz-note { border: 1px solid #bfd0eb; border-left: 4px solid #547fb6; color: #29476f; }
 .biz-section-actions { border-color: #aebed2; box-shadow: 0 -3px 12px #182b430b; }
+.biz-tool-tabs { display: flex; gap: 8px; padding: 5px; border: 1px solid #c5d0df; border-radius: 9px; background: #e1e8f1; width: fit-content; margin-bottom: 16px; }
+.biz-tool-tabs button { border-color: transparent; }
+.tool-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.tool-kpis strong { font-size: 24px; }
+.tool-warnings { background: #fff5df; border: 1px solid #e7c783; border-left: 4px solid #b57d13; padding: 10px 14px; border-radius: 7px; margin: 12px 0; color: #76520e; font-size: 13px; }
+.tool-status { background: #fff5df; border: 1px solid #e7c783; padding: 12px 16px; border-radius: 7px; font-weight: 700; }
+.tool-status span { display: block; font-size: 12px; font-weight: 400; margin-top: 4px; }
+.tool-status.success { background: #eaf6ee; border-color: #acd2b8; color: #176437; }
+.tool-status.warning { color: #855b0a; }
+#biz-tool-result .biz-table td:first-child { min-width: 0; }
 @media(max-width:900px) {
+  .tool-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .section-heading { gap: 4px 10px; }
   #list-heading { padding: 10px 12px; }
 }

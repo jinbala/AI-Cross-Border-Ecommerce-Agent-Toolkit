@@ -9,6 +9,8 @@
   const requests = new Map();
   let state, page = '', productId = '', experimentId = '', artifactId = '', report = '', workflowPrompt = '', workflowResult = '';
   let pricingResult = null, candidateBrief = '', selectedCandidate = '', renderId = 0;
+  let checkTab = 'video';
+  const toolResults = {video:null,reviews:null}, toolDemo = {video:false,reviews:false}, toolRunning = {video:false,reviews:false};
   const drafts = {};
   const money = value => Number(value).toLocaleString('zh-CN', {minimumFractionDigits:2, maximumFractionDigits:2});
   const today = () => new Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
@@ -43,7 +45,7 @@
   function captureDraft() {
     if (!page || !view().querySelector('[name]')) return;
     const value = form(); delete value.api_key;
-    drafts[page+':'+(page==='products'?productId:page==='experiments'?experimentId:'')] = value;
+    drafts[page+':'+(page==='products'?productId:page==='experiments'?experimentId:page==='checks'?checkTab:'')] = value;
   }
   async function refresh() { state = await call('state'); return state; }
   async function navigate(next, selected='') {
@@ -51,11 +53,11 @@
     host?.postMessage({action:'business-navigation',section:next==='intake'?'candidates':next});
     document.body.dataset.business='true'; root.hidden=false; message('');
     const request = ++renderId; view().innerHTML='<div class="biz-loading">正在读取本机资料…</div>';
-    try { await refresh(); if(request===renderId) render(); } catch(error) {message(error.message,true);}
+    try { await refresh(); if(request===renderId){render();window.scrollTo(0,0);} } catch(error) {message(error.message,true);}
   }
   function showPants() {captureDraft();page='';renderId++;root.hidden=true;delete document.body.dataset.business;}
   function render() {
-    const routes={candidates:renderCandidates,products:renderProducts,pricing:renderPricing,workflows:renderWorkflows,experiments:renderExperiments,artifacts:renderArtifacts,settings:renderSettings,analytics:renderAnalytics};
+    const routes={candidates:renderCandidates,products:renderProducts,pricing:renderPricing,workflows:renderWorkflows,experiments:renderExperiments,artifacts:renderArtifacts,settings:renderSettings,analytics:renderAnalytics,checks:renderChecks};
     (routes[page]||renderCandidates)();
   }
   function renderCandidates() {
@@ -101,7 +103,7 @@
       +`<label>关联产品<select name="product_id">${productOptions(d.product_id??productId)}</select></label>`
       +select('platform','目标渠道',state.platforms.map(p=>[p,p]),d.platform||'供货 / 批发')+input('market','目标市场',d.market||'中国 / 供货')
       +textarea('brief','补充资料与任务要求',d.brief||candidateBrief)+'</div></div>'
-      +'<div class="biz-tools">'+btn('compose','生成任务包',true)+btn('generate-ai','用已配置模型生成')+btn('copy-prompt','复制任务包')+'</div><p class="hint">点击模型生成会把当前产品和任务资料发给你配置的服务商，费用按服务商计费。图片和视频任务输出制作方案与脚本。</p>'
+      +'<div class="biz-tools">'+btn('compose','生成任务包',true)+btn('generate-ai','用已配置模型生成')+btn('copy-prompt','复制任务包')+btn('open-checks','视频校验 / 评论统计')+'</div><p class="hint">点击模型生成会把当前产品和任务资料发给你配置的服务商，费用按服务商计费。图片和视频任务输出制作方案与脚本。</p>'
       +'<h2>任务包</h2>'+output(workflowPrompt)+`<div class="biz-panel">${textarea('result','文字结果 / 粘贴返回内容',d.result??workflowResult)}<div class="biz-tools">${btn('save-workflow','保存文字结果',true)}${btn('save-prompt','保存任务包')}${btn('export-workflow','导出当前文字')}</div></div>`;
   }
   function renderExperiments() {
@@ -134,8 +136,60 @@
   function renderAnalytics() {
     const d=drafts['analytics:']||{};
     view().innerHTML=head('数据分析','导入市场表格，或按同一统计周期计算广告指标。')
+      +'<div class="biz-note">新增本地工具：配音稿时长与字幕校验、评论归因统计。'+btn('open-checks','打开视频与评论')+'</div>'
       +'<div class="biz-panel"><h2>市场指标</h2><p class="hint">CSV / TSV 表头包含价格、月销量；此处是精确值样本分析，不接收罗盘区间作为精确月销量。</p><div class="biz-tools">'+btn('market-report','选择市场表并分析',true)+'</div></div>'
       +'<div class="biz-panel"><h2>广告指标</h2><div class="biz-form">'+[['impressions','曝光量'],['clicks','点击量'],['orders','订单量'],['spend','广告花费'],['revenue','广告销售额'],['unit_profit','广告前单件贡献']].map(([k,t])=>input(k,t,d[k]||'','number')).join('')+'</div><div class="biz-tools">'+btn('ad-report','计算广告指标')+btn('save-analysis','保存报告')+'</div></div>'+output(report);
+  }
+  function renderChecks() {
+    const video=checkTab==='video', d=drafts['checks:'+checkTab]||{};
+    view().innerHTML=head('视频与评论','原作者新增工具已接入桌面，在本机计算，无需配置 AI 模型。')
+      +'<div class="biz-tool-tabs" role="group" aria-label="选择工具">'+btn('tool-video','视频时长与字幕',false,`aria-pressed="${video}"`)+btn('tool-reviews','评论统计与卖点',false,`aria-pressed="${!video}"`)+'</div>'
+      +(toolDemo[checkTab]?'<div class="biz-note">正在体验虚构服装示例；报告保存和导出均保留演示标记。修改资料后按新输入重新计算。</div>':'')
+      +'<div class="biz-panel"><div class="biz-form">'
+      +(video ? textarea('script','配音稿（每行一句，可直接粘贴）',d.script||'')
+        +select('language','朗读计数方式',[['auto','自动识别中文 / 葡英'],['zh','中文：汉字逐字计数'],['words','葡语 / 英语：按空格分词']],d.language||'auto')
+        +input('target','目标时长 / 秒',d.target??30,'number')
+        +'<details class="wide"><summary>语速与字幕长度</summary><div class="biz-form">'+input('rate','语速（留空：中文 4 单位 / 秒，葡英 2.5 词 / 秒）',d.rate??'','number')+input('subtitle_max','每行字幕字符上限',d.subtitle_max??42,'number')+'</div></details>'
+        : textarea('reviews_text','评论表格（可粘贴 Excel，需含评分列）',d.reviews_text||'')
+        +'<p class="hint wide">识别 rating / 评分 / 星级等列名；归因与带图列可选。只统计已填写的分类，不会自动理解评论。未知评分会列为待补。</p>'
+        +'<details class="wide"><summary>卖点排行与可改进归因（可选）</summary><div class="biz-form">'+textarea('points_text','卖点表（列名：卖点、频次、强度）',d.points_text||'')+input('fixable','可通过说明改进的归因（逗号分隔）',d.fixable??'误解型,参数不符合预期,配件缺失,使用困难','text',true)+'</div><div class="biz-tools">'+btn('import-points','选择卖点表')+btn('template-points','下载卖点模板')+'</div></details>')
+      +'</div><div class="biz-tools">'+btn('run-tool',video?'校验配音稿':'统计评论',true,toolRunning[checkTab]?'disabled':'')+btn('import-tool',video?'选择 TXT 并校验':'选择 CSV / TSV 并统计')+btn('example-tool','体验服装示例')+btn('clear-tool','清空，填自己的资料')+(!video?btn('template-reviews','下载评论模板'):'')+'</div>'
+      +'<p class="hint">'+(video?'预估时长依据文字与语速假设；不测量真实音频，也不生成视频。中文混合数字、外语和停顿请按实际配音核对。':'好中差评占比按有效评分计算。卖点排行依赖你提供的频次，不会把推测当作评论事实。')+'</p></div>'
+      +'<div id="biz-tool-result">'+toolOutput()+'</div>';
+  }
+  function toolOutput() {
+    const result=toolResults[checkTab];if(!result)return '';
+    const kpi=(label,value)=>`<div class="biz-kpi"><small>${esc(label)}</small><strong>${esc(value)}</strong></div>`;
+    const table=(headers,rows)=>'<div class="biz-table-wrap"><table class="biz-table"><thead><tr>'+headers.map(h=>'<th>'+esc(h)+'</th>').join('')+'</tr></thead><tbody>'+rows.slice(0,200).map(row=>'<tr>'+row.map(cell=>'<td>'+esc(cell)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>'+(rows.length>200?'<p class="hint">界面显示前 200 行，完整内容见报告。</p>':'');
+    let body='';
+    if(result.kind==='video') {
+      body=`<div class="tool-status ${result.target_pass?'success':'warning'}">${result.target_pass?'时长在设定范围内':'时长不在设定范围内，请调整台词'}<span>允许范围：${esc(result.window)}</span></div>`
+        +'<div class="biz-kpis tool-kpis">'+kpi('预估时长 / 秒',result.total_seconds)+kpi('目标 / 秒',result.target)+kpi('有效台词 / 句',result.rows.length)+kpi('待检查事项',result.issues.length)+'</div>'
+        +`<p class="hint">采用 ${esc(result.rate)} ${esc(result.unit)}；最终以实际配音为准。</p>`
+        +(result.issues.length?'<div class="tool-warnings">'+result.issues.map(x=>'<p>'+esc(x)+'</p>').join('')+'</div>':'')
+        +table(['句','时间轴','计数','字幕字符','台词 / 提醒'],result.rows.map(row=>[row.index,row.timeline,row.words,row.subtitle_chars,row.text+(row.warnings.length?' · '+row.warnings.join('；'):'')]));
+    } else {
+      const r=result.reviews;
+      body='<div class="biz-kpis tool-kpis">'+kpi('有效评分 / 条',result.valid_count)+kpi('好评 / 条',r.good)+kpi('中评 / 条',r.mid)+kpi('差评 / 条',r.bad)+'</div>'
+        +`<p class="hint">原表 ${esc(r.total)} 行，剔除 ${esc(r.unrated)} 行无效 / 缺失评分；好评占有效评分 ${(r.good_rate*100).toFixed(1)}%，差评 ${(r.bad_rate*100).toFixed(1)}%。</p>`
+        +(result.warnings.length?'<div class="tool-warnings">'+result.warnings.map(x=>'<p>'+esc(x)+'</p>').join('')+'</div>':'')
+        +'<h2>差评归因</h2>'+(r.bad?table(['已有归因','条数','占差评比'],Object.entries(r.attribution).map(([label,count])=>[label,count,(count/r.bad*100).toFixed(1)+'%'])):'<div class="biz-note">有效评分中没有差评。</div>')
+        +`<p class="hint">已标记可通过说明改进 ${esc(r.fixable_count)} 条；未归因 ${esc(r.unattributed.length)} 条。分类依据输入资料，不能替代质量核实。</p>`
+        +(result.points?'<h2>卖点排行</h2>'+table(['排名','卖点','输入频次','强度','综合分'],result.points.rows.map(row=>[row.rank,row.point,row.freq,row.strength,row.score])):'');
+    }
+    return (result.is_demo?'<span class="biz-tag demo">演示结果</span>':'')+body+'<div class="biz-tools">'+btn('save-tool','保存到成果资料',true)+btn('export-tool','导出完整报告')+'</div><details><summary>完整报告与计算口径</summary>'+output(result.report)+'</details>';
+  }
+  async function runTool() {
+    const tab=checkTab;if(toolRunning[tab])return;
+    const values=form(),signature=JSON.stringify(values);captureDraft();toolRunning[tab]=true;
+    const button=view().querySelector('[data-action=run-tool]');if(button)button.disabled=true;
+    try {
+      const result=await call(tab==='video'?'video_report':'review_report',{...values,is_demo:toolDemo[tab]});
+      const current=page==='checks'&&checkTab===tab?form():drafts['checks:'+tab];
+      if(JSON.stringify(current)!==signature){if(page==='checks'&&checkTab===tab)message('输入已修改，请重新计算。');return;}
+      toolResults[tab]=result;
+      if(page==='checks'&&checkTab===tab){document.getElementById('biz-tool-result').innerHTML=toolOutput();message('已按当前资料计算。');}
+    }finally{toolRunning[tab]=false;if(page==='checks'&&checkTab===tab){const next=view().querySelector('[data-action=run-tool]');if(next)next.disabled=false;}}
   }
   function renderIntake(advanced=false) {
     page='intake';
@@ -186,6 +240,7 @@
   }
   view().addEventListener('change',async event=>{
     try {
+      if(page==='checks'&&event.target.name){toolResults[checkTab]=null;document.getElementById('biz-tool-result').innerHTML='';}
       if(['biz-product-picker','biz-pricing-product'].includes(event.target.id)) {
         captureDraft();productId=event.target.value;
         if(page==='pricing')resetPriceForProduct();render();
@@ -202,6 +257,7 @@
   view().addEventListener('input',event=>{
     if(event.target.id==='biz-search')for(const row of view().querySelectorAll('tr[data-search]'))row.hidden=!row.dataset.search.includes(event.target.value.toLowerCase());
     if(page==='pricing'&&event.target.name){pricingResult=null;document.getElementById('biz-pricing-result').innerHTML='';}
+    if(page==='checks'&&event.target.name){toolResults[checkTab]=null;document.getElementById('biz-tool-result').innerHTML='';}
   });
   view().addEventListener('click',async event=>{
     const target=event.target.closest('[data-action]');if(!target)return;
@@ -251,6 +307,24 @@
       else if(action==='backup'||action==='restore'){const r=await call(action);if(!r.cancelled){await refresh();message(r.message);}}
       else if(action==='market-report'||action==='ad-report'){const r=await call(action==='market-report'?'market_report':'ad_report',action==='ad-report'?{values:form()}:{currency:'CNY'});if(!r.cancelled){report=r.report;captureDraft();renderAnalytics();}}
       else if(action==='save-analysis'){await call('save_artifact',{name:'数据分析报告',kind:'分析报告',content:report});message('报告已保存。');}
+      else if(action==='open-checks'){await navigate('checks');}
+      else if(action==='tool-video'||action==='tool-reviews'){captureDraft();checkTab=action==='tool-video'?'video':'reviews';renderChecks();}
+      else if(action==='run-tool'){await runTool();}
+      else if(action==='clear-tool'){drafts['checks:'+checkTab]={};toolResults[checkTab]=null;toolDemo[checkTab]=false;renderChecks();}
+      else if(action==='example-tool'){
+        const tab=checkTab,data=await call('tool_example',{tool:tab});if(page!=='checks'||checkTab!==tab)return;
+        drafts['checks:'+tab]=data;toolDemo[tab]=true;toolResults[tab]=null;renderChecks();await runTool();
+      } else if(action==='import-tool'||action==='import-points'){
+        const tab=checkTab;captureDraft();const r=await call(action==='import-points'?'points_import':tab==='video'?'video_import':'review_import');if(r.cancelled||page!=='checks'||checkTab!==tab)return;
+        drafts['checks:'+tab]={...(toolDemo[tab]?{}:drafts['checks:'+tab]),[action==='import-points'?'points_text':tab==='video'?'script':'reviews_text']:r.text};
+        toolDemo[tab]=false;toolResults[tab]=null;renderChecks();if(action!=='import-points')await runTool();else message('卖点表已读取，请点击统计评论更新结果。');
+      } else if(action==='template-reviews'||action==='template-points'){
+        const r=await call('tool_template',{tool:action==='template-points'?'points':'reviews'});await call('export_report',{...r,format:'csv'});
+      } else if(action==='save-tool'||action==='export-tool'){
+        const result=toolResults[checkTab];if(!result)throw new Error('请先完成当前资料的计算。');
+        if(action==='save-tool'){await call('save_artifact',{name:(result.is_demo?'【演示】':'')+(result.kind==='video'?'视频时长与字幕校验':'评论统计与卖点排行')+' · '+today(),kind:'分析报告',content:result.report});message('已保存到成果资料。');}
+        else await call('export_report',{content:result.report});
+      }
     }catch(error){message(error.message,true);}
     finally {if(target.isConnected)target.disabled=false;}
   });
@@ -289,10 +363,29 @@
       await call('save_experiment',{experiment:{name:updated.name,product_id:updated.id,channel:'测试供货',date:today(),status:'计划中',budget:100,spent:0,revenue:0,hours:0,goal:'测试',result:'',next:'核对成本'}});
       await refresh();
       if(state.candidates.length!==1||state.products.length!==1||state.experiments.length!==1)throw new Error('重复入库或经营记录失败');
-      for(const route of ['candidates','products','pricing','workflows','experiments','artifacts','settings','analytics'])await navigate(route);
+      await navigate('checks');
+      view().querySelector('[data-action=example-tool]').click();
+      await waitFor(()=>toolResults.video!==null&&!toolRunning.video);
+      if(toolResults.video.language!=='zh'||toolResults.video.total_seconds<=0)throw new Error('中文配音稿校验失败');
+      const videoSave=view().querySelector('[data-action=save-tool]');videoSave.click();await waitFor(()=>!videoSave.disabled);
+      view().querySelector('[data-action=tool-reviews]').click();
+      view().querySelector('[data-action=example-tool]').click();
+      await waitFor(()=>toolResults.reviews!==null&&!toolRunning.reviews);
+      if(toolResults.reviews.valid_count!==3||toolResults.reviews.reviews.bad!==2||toolResults.reviews.points.rows.length!==2)throw new Error('评论统计界面衔接失败');
+      const reviewSave=view().querySelector('[data-action=save-tool]');reviewSave.click();await waitFor(()=>!reviewSave.disabled);
+      await refresh();
+      if(state.artifacts.filter(x=>x.name.includes('【演示】')&&x.kind==='分析报告').length!==2)throw new Error('演示工具报告保存失败');
+      view().querySelector('[data-action=tool-video]').click();
+      const script=view().querySelector('[name=script]');script.value+='\n测试修改';script.dispatchEvent(new Event('input',{bubbles:true}));
+      if(toolResults.video!==null||view().querySelector('[data-action=save-tool]'))throw new Error('修改配音稿未清除过期结果');
+      view().querySelector('[data-action=example-tool]').click();await waitFor(()=>toolResults.video!==null&&!toolRunning.video);
+      const marketTask=await call('compose',{module:0,platform:'供货',market:'中国',brief:'测试'});
+      if(!marketTask.prompt.includes('Skill 入口'))throw new Error('同步的市场分析规则未进入任务包');
+      for(const route of ['candidates','products','pricing','workflows','experiments','artifacts','settings','analytics','checks'])await navigate(route);
       await navigate('candidates');
-      window.unifiedSmokeResult={passed:true,candidates:state.candidates.length,products:state.products.length,experiments:state.experiments.length,unit_profit:r.result.unit_profit,rangeNotUsedAsPrice:true,workflowHasSource:task.prompt.includes('来源平台'),actualCardAndPricingButtons:true,bodyText:document.body.innerText.slice(-2500)};
+      window.unifiedSmokeResult={passed:true,candidates:state.candidates.length,products:state.products.length,experiments:state.experiments.length,unit_profit:r.result.unit_profit,rangeNotUsedAsPrice:true,workflowHasSource:task.prompt.includes('来源平台'),actualCardAndPricingButtons:true,upstreamTools:{video:true,reviews:true,demoReports:2,staleResultCleared:true,marketSkill:true},bodyText:document.body.innerText.slice(-2500)};
     }catch(error){window.unifiedSmokeResult={passed:false,error:error.message};}
   }
-  globalThis.businessUI={receive,navigate,showPants,collect,syncFavorites,runSmoke};
+  async function previewTool(tab) {await navigate('checks');captureDraft();checkTab=tab;renderChecks();}
+  globalThis.businessUI={receive,navigate,showPants,collect,syncFavorites,runSmoke,previewTool};
 })();

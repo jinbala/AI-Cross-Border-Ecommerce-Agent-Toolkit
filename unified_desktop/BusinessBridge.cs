@@ -69,16 +69,21 @@ internal sealed partial class WorkbenchForm
         try {
             var args = message.ContainsKey("args") ? (Dictionary<string, object>)message["args"] : new Dictionary<string, object>();
             // File paths are selected in native dialogs, never accepted from a web page.
+            if (args.ContainsKey("path") || args.ContainsKey("points_path")) throw new InvalidOperationException("请通过软件中的文件选择按钮打开文件。");
             if (command == "backup" || command == "export_report") {
-                using (var dialog = new SaveFileDialog { Filter = command == "backup" ? "经营数据备份|*.json" : "Markdown 文档|*.md", FileName = command == "backup" ? "服装生意备份-" + DateTime.Now.ToString("yyyyMMdd") + ".json" : "工作台报告.md", AddExtension = true }) {
+                bool csv = command == "export_report" && args.ContainsKey("format") && Convert.ToString(args["format"]) == "csv";
+                string fileName = command == "backup" ? "服装生意备份-" + DateTime.Now.ToString("yyyyMMdd") + ".json" : csv ? "工作台模板.csv" : "工作台报告.md";
+                if (command == "export_report" && args.ContainsKey("filename")) fileName = Path.GetFileName(Convert.ToString(args["filename"]));
+                using (var dialog = new SaveFileDialog { Filter = command == "backup" ? "经营数据备份|*.json" : csv ? "CSV 表格|*.csv" : "Markdown 文档|*.md", FileName = fileName, AddExtension = true }) {
                     if (dialog.ShowDialog(this) != DialogResult.OK) { response["ok"] = true; response["data"] = new Dictionary<string, object> { {"cancelled", true} }; }
                     else if (command == "export_report") {
-                        File.WriteAllText(dialog.FileName, Convert.ToString(args["content"]), new UTF8Encoding(false));
+                        File.WriteAllText(dialog.FileName, Convert.ToString(args["content"]), new UTF8Encoding(csv));
                         response["ok"] = true; response["data"] = new Dictionary<string, object> { {"message", "文档已导出。"} };
                     } else { args["path"] = dialog.FileName; response = await BusinessCall(command, args); }
                 }
-            } else if (command == "restore" || command == "import_file" || command == "market_report") {
-                using (var dialog = new OpenFileDialog { Filter = command == "restore" ? "经营数据备份|*.json" : command == "market_report" ? "市场表格|*.csv;*.tsv" : "选品表格|*.xlsx;*.csv;*.tsv" }) {
+            } else if (command == "restore" || command == "import_file" || command == "market_report" || command == "video_import" || command == "review_import" || command == "points_import") {
+                string filter = command == "restore" ? "经营数据备份|*.json" : command == "market_report" || command == "review_import" || command == "points_import" ? "CSV / TSV 表格|*.csv;*.tsv" : command == "video_import" ? "TXT 配音稿|*.txt" : "选品表格|*.xlsx;*.csv;*.tsv";
+                using (var dialog = new OpenFileDialog { Filter = filter }) {
                     if (dialog.ShowDialog(this) != DialogResult.OK) { response["ok"] = true; response["data"] = new Dictionary<string, object> { {"cancelled", true} }; }
                     else { args["path"] = dialog.FileName; response = await BusinessCall(command, args); }
                 }
@@ -112,10 +117,11 @@ internal sealed partial class WorkbenchForm
             using (var stream = File.Create(Path.ChangeExtension(smokeOutput, ".png")))
                 await view.CoreWebView2.CapturePreviewAsync(Microsoft.Web.WebView2.Core.CoreWebView2CapturePreviewImageFormat.Png, stream);
             SaveWindowPreview();
-            foreach (string page in new[] { "pricing", "workbench" }) {
+            foreach (string page in new[] { "pricing", "workbench", "checks-video", "checks-reviews" }) {
                 if (page == "workbench") await NavigateSection(page);
                 else {
-                    await view.CoreWebView2.ExecuteScriptAsync("window.businessPreviewReady=false; businessUI.navigate('pricing').then(()=>window.businessPreviewReady=true)");
+                    string preview = page == "pricing" ? "businessUI.navigate('pricing')" : "businessUI.previewTool(" + DesktopJson.Write(page == "checks-video" ? "video" : "reviews") + ")";
+                    await view.CoreWebView2.ExecuteScriptAsync("window.businessPreviewReady=false; " + preview + ".then(()=>window.businessPreviewReady=true)");
                     for (int attempt = 0; attempt < 100; attempt++) {
                         if (await view.CoreWebView2.ExecuteScriptAsync("window.businessPreviewReady===true") == "true") break;
                         await Task.Delay(100);
@@ -124,6 +130,7 @@ internal sealed partial class WorkbenchForm
                 await Task.Delay(150);
                 using (var stream = File.Create(Path.ChangeExtension(smokeOutput, "." + page + ".png")))
                     await view.CoreWebView2.CapturePreviewAsync(Microsoft.Web.WebView2.Core.CoreWebView2CapturePreviewImageFormat.Png, stream);
+                if (page.StartsWith("checks-")) SaveWindowPreview("." + page);
                 if (page == "workbench") {
                     await view.CoreWebView2.ExecuteScriptAsync("document.getElementById('factory-sales').value='100';document.getElementById('factory-conversion').value='3';document.getElementById('factory-only').checked=false;applyView();document.getElementById('list-heading').scrollIntoView({block:'start',behavior:'instant'})");
                     await Task.Delay(150);

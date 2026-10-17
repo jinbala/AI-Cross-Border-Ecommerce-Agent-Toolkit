@@ -43,7 +43,7 @@ def main():
         command = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", "--onedir", "--console",
                    "--name", "GarmentBackend", "--contents-directory", "runtime", "--paths", ROOT,
                    "--distpath", BUILD / "dist", "--workpath", BUILD / "work", "--specpath", BUILD,
-                   "--hidden-import", "statistics", "--hidden-import", "openpyxl"]
+                   "--hidden-import", "statistics", "--hidden-import", "openpyxl", "--hidden-import", "unicodedata"]
         for folder in ("Agents", "Templates", "docs"):
             for path in sorted((ROOT / folder).rglob("*")):
                 if path.is_file() and path.suffix.lower() in (".md", ".py", ".yaml", ".json", ".csv"):

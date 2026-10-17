@@ -16,7 +16,7 @@ from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
 
 if not __package__:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from desktop_app import core, selection
+from desktop_app import core, selection, upstream_tools
 
 MAX_REQUEST = 12_000_000
 
@@ -290,6 +290,20 @@ def dispatch(store, command, args):
         return dict(report=core.market_report(path, text(args.get("currency"), 10) or "CNY"))
     if command == "ad_report":
         return dict(report=core.ad_report(object_value(args.get("values"))))
+    if command == "video_report":
+        return upstream_tools.video_report(args)
+    if command == "review_report":
+        return upstream_tools.review_report(args)
+    if command in ("video_import", "review_import", "points_import"):
+        return upstream_tools.read_file(text(args.get("path")), "video" if command == "video_import" else "reviews")
+    if command == "tool_example":
+        return upstream_tools.example(text(args.get("tool"), 30))
+    if command == "tool_template":
+        kind = args.get("tool")
+        if kind not in ("reviews", "points"):
+            raise ValueError("请选择评论表或卖点表模板。")
+        return dict(content=upstream_tools.REVIEW_TEMPLATE if kind == "reviews" else upstream_tools.POINTS_TEMPLATE,
+                    filename="评论表模板.csv" if kind == "reviews" else "卖点表模板.csv")
     raise ValueError("不支持的工作台操作。")
 
 

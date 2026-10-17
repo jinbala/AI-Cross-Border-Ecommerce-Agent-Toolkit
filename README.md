@@ -7,6 +7,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
 桌面版开发与维护记录见 [2.0 开发备注](./docs/10_Desktop_v2.0_Development_Notes.md)。
+
+桌面新增 **“视频与评论”**：配音稿时长 / 字幕校验、评论统计 / 卖点排行，支持粘贴、文件导入及报告保存。原作者同步能力的界面入口、使用方法和本次开发备注见 [上游工具桌面接入说明](./docs/12_Upstream_Desktop_Tools.md)。
 [![Status: v0.3 beta](https://img.shields.io/badge/status-v0.3%20beta-orange.svg)](./CHANGELOG.md)
 [![Agents: 7/7 done](https://img.shields.io/badge/agents-7%2F7%20done-brightgreen.svg)](#-agent-全景)
 

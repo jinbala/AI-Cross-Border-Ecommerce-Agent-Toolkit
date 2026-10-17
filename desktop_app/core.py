@@ -216,7 +216,7 @@ def workflow_prompt(index, product, platform, market, brief):
 4. Temu、供货批发及国内电商不在原仓库完整适配范围内，只输出通用产品资料/供货方案，不冒充官方平台规则。
 5. 关键词榜单、广告、评论、成本缺失时，仅完成资料允许的部分并列出缺项；不得编造数据、收益、销量或把候选词冒充真实热词。
 6. 图片和视频流程产出策划、提示词与脚本；没有实际生成工具时，不声称已经交付成品图片或视频。
-7. 数字计算以已提供的计算报告为准。报价应区分工厂供货收入与消费者零售价，全部金额注明币种。
+7. 数字计算以已提供的计算报告为准。报价应区分工厂供货收入与消费者零售价，全部金额注明币种。没有实际运行本地脚本或收到计算报告时，不得声称已经完成校验；可让用户先在桌面工具中计算。
 8. 服装重点核查面料、版型、实测尺码、色差、洗护与包装；图片设计保留实物的颜色、花纹及结构。
 9. 需要下单、投放、上架、联系客户或修改店铺时，提供待人工执行的建议，不声称已执行。
 10. 输出包含：已完成结果、待补资料、人工核对清单；内部分析用中文。
@@ -228,6 +228,9 @@ def workflow_prompt(index, product, platform, market, brief):
 {brief.strip() or '未补充。先检查所需字段，缺失的信息请明确指出。'}
 """
     parts = [context]
+    skill = folder / "SKILL.md"
+    if skill.is_file():
+        parts.append("\n# 项目参考流程 · Skill 入口\n\n" + skill.read_text(encoding="utf-8-sig"))
     for path in files:
         parts.append(f"\n# 项目参考流程 · {path.name}\n\n{path.read_text(encoding='utf-8-sig')}")
     parts.append("\n请现在处理本次任务。以开头的执行约定和真实资料为准，不能执行的部分明确列出原因。")

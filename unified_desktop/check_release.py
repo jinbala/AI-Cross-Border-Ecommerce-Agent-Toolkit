@@ -37,6 +37,7 @@ def main():
     assert result.returncode == 0, data
     if args.mode == 'unified':
         assert data['passed'] and data['unit_profit'] == 10 and data['rangeNotUsedAsPrice'], data
+        assert data['upstreamTools']['video'] and data['upstreamTools']['reviews'] and data['upstreamTools']['staleResultCleared'] and data['upstreamTools']['marketSkill'] and data['upstreamTools']['demoReports'] == 2, data
     else:
         assert data, '采集检查未返回结果。'
         if args.mode == 'collector':
@@ -51,6 +52,8 @@ def main():
     with zipfile.ZipFile(archive) as package:
         names = package.namelist()
         assert not any('/data/' in name or '/UserData/' in name for name in names)
+        for script in ('05_Product_Video_Agent/scripts/video_timing.py','07_Review_Analysis_Agent/scripts/review_stats.py','01_Market_Research_Agent/SKILL.md'):
+            assert any(name.endswith('/Agents/'+script) for name in names), script
         assert package.testzip() is None
 
 

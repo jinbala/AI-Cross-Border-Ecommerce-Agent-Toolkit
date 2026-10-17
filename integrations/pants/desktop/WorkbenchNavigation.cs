@@ -17,7 +17,7 @@ internal sealed partial class WorkbenchForm
         var sidebar = new Panel { Dock = DockStyle.Left, Width = 200, BackColor = Color.FromArgb(21, 37, 59), Padding = new Padding(8) };
         var title = new Label { Text = "服装生意\n工作台 2.0", ForeColor = Color.White, Font = new Font("Microsoft YaHei", 15, FontStyle.Bold), Height = 88, Dock = DockStyle.Top, Padding = new Padding(12, 14, 0, 0) };
         var menu = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true };
-        foreach (var item in new[] { new[] {"workbench", "选品找款", ""}, new[] {"favorites", "我的收藏", ""}, new[] {"candidates", "我的候选", ""}, new[] {"products", "产品档案", ""}, new[] {"pricing", "报价与利润", ""}, new[] {"workflows", "AI 工作流", ""}, new[] {"experiments", "测款记录", ""}, new[] {"artifacts", "成果资料", ""}, new[] {"analytics", "数据分析", ""}, new[] {"compass", "罗盘账号", ""}, new[] {"settings", "账号与设置", ""} }) {
+        foreach (var item in new[] { new[] {"workbench", "选品找款", ""}, new[] {"favorites", "我的收藏", ""}, new[] {"candidates", "我的候选", ""}, new[] {"products", "产品档案", ""}, new[] {"pricing", "报价与利润", ""}, new[] {"workflows", "AI 工作流", ""}, new[] {"experiments", "测款记录", ""}, new[] {"artifacts", "成果资料", ""}, new[] {"analytics", "数据分析", ""}, new[] {"checks", "视频与评论", ""}, new[] {"compass", "罗盘账号", ""}, new[] {"settings", "账号与设置", ""} }) {
             string section = item[0];
             string group = section == "workbench" ? "选款与筛选" : section == "products" ? "经营与测款" : section == "compass" ? "账户" : null;
             if (group != null) {
@@ -188,16 +188,16 @@ internal sealed partial class WorkbenchForm
         Close();
     }
 
-    private void SaveWindowPreview()
+    private void SaveWindowPreview(string suffix = "")
     {
         using (var bitmap = new Bitmap(Width, Height)) {
             DrawToBitmap(bitmap, new Rectangle(Point.Empty, Size));
-            using (var content = Image.FromFile(System.IO.Path.ChangeExtension(smokeOutput, ".png")))
+            using (var content = Image.FromFile(System.IO.Path.ChangeExtension(smokeOutput, suffix + ".png")))
             using (var graphics = Graphics.FromImage(bitmap)) {
                 Point origin = view.PointToScreen(Point.Empty);
                 graphics.DrawImage(content, origin.X - Left, origin.Y - Top, view.Width, view.Height);
             }
-            bitmap.Save(System.IO.Path.ChangeExtension(smokeOutput, ".window.png"), System.Drawing.Imaging.ImageFormat.Png);
+            bitmap.Save(System.IO.Path.ChangeExtension(smokeOutput, suffix + ".window.png"), System.Drawing.Imaging.ImageFormat.Png);
         }
     }
 }
